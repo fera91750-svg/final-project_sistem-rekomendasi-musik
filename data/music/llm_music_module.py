@@ -169,30 +169,39 @@ dengan penjelasan yang alami dan mudah dipahami.
 
     def _create_tools(self):
         """Create LangChain tools for the chatbot"""
-        @tool   
-        def predict_mood (user_text : str) -> Dict[str, Any]:
-            """Prediksi mood lagu berdasarkan fitur audio dalam format JSON.Prediksi mood berdasarkan curhatan teks user. Bisa menggunakan ML (jika ada) 		atau rule based NLP sederhana."""
+        @tool
+        def predict_mood(features_json: str) -> Dict[str, Any]:
+            """Prediksi mood lagu berdasarkan fitur audio dalam format JSON."""
+            order = [
+                'danceability', 'energy', 'valence', 'tempo', 'acousticness',
+                'instrumentalness', 'loudness', 'speechiness'
+            ]
+
             try:
-                text = user_text.lower()
+                data = json.loads(features_json)
+                x = np.array([float(data[f]) for f in order]).reshape(1, -1)
 
-                sad_keywords = ['sedih', 'galau', 'patah hati', 'kecewa', 'ditinggal']
-                happy_keywords = ['senang', 'excited', 'bahagia', 'semangat']
-                calm_keywords = ['capek', 'ingin tenang', 'butuh ketenangan', 'relax']
-                tense_keywords = ['stres', 'cemas', 'panik', 'tertekan', 'pusing kuliah']
-
-                if any(word in text for word in sad_keywords):
-                    mood = 'Sad'
-                elif any(word in text for word in happy_keywords):
-                    mood = 'Happy'
-                elif any(word in text for word in calm_keywords):
-                    mood = 'Calm'
-                elif any(word in text for word in tense_keywords):
-                    mood = 'Tense'
+                # Use model if available, otherwise rule-based
+                if self.model is not None and self.label_encoder is not None:
+                    pred = self.model.predict(x)[0]
+                    mood = self.label_encoder.inverse_transform([pred])[0]
                 else:
-                    mood = 'Unknown'
+                    # Rule-based fallback
+                    valence = float(data['valence'])
+                    energy = float(data['energy'])
+
+                    if valence >= 0.5 and energy >= 0.5:
+                        mood = 'Happy'
+                    elif valence < 0.5 and energy < 0.5:
+                        mood = 'Sad'
+                    elif valence >= 0.5 and energy < 0.5:
+                        mood = 'Calm'
+                    else:
+                        mood = 'Tense'
+
                 return {"predicted_mood": mood}
             except Exception as e:
-                return {"error": f"Error predicting mood: {str(e)}"}   
+                return {"error": f"Error predicting mood: {str(e)}"}
 
         @tool
         def recommend_music(mood: str) -> Dict[str, Any]:
