@@ -1,43 +1,31 @@
 """
-🎬🎵 MELORA - Music & Film Recommendation System
-Landing Page - User chooses between Music or Film recommendation
+🎵 MELORA - Music Recommendation System
+Landing Page - User chooses Music recommendation
 """
 
 import streamlit as st
+from PIL import Image
+import os
+import base64
 
-# Page configuration - COLLAPSED sidebar for clean look
+# Page configuration
 st.set_page_config(
-    page_title="MELORA - AI Recommendation System",
-    page_icon="🎬",
-    layout="centered",  # Centered for minimalist look
-    initial_sidebar_state="collapsed"  # NO SIDEBAR on landing page!
+    page_title="MELORA - Music Recommendation System",
+    page_icon="🎵",
+    layout="centered",
+    initial_sidebar_state="collapsed"
 )
 
-# Custom CSS - Clean professional design
+# Custom CSS
 st.markdown("""
 <style>
-    /* Hide sidebar */
-    [data-testid="stSidebar"] {
-        display: none;
-    }
+    [data-testid="stSidebar"] { display: none; }
 
-    /* Full screen background - Professional slate */
-    .main {
-        background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
-    }
+    .main { background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%); }
 
-    /* Container */
-    .block-container {
-        padding-top: 3rem;
-        padding-bottom: 3rem;
-        max-width: 1000px;
-    }
+    .block-container { padding-top: 3rem; padding-bottom: 3rem; max-width: 1000px; }
 
-    /* Hero section */
-    .hero-container {
-        text-align: center;
-        padding: 2rem 0 3rem 0;
-    }
+    .hero-container { text-align: center; padding: 2rem 0 3rem 0; }
 
     .hero-logo {
         width: 250px;
@@ -60,12 +48,11 @@ st.markdown("""
     }
 
     .hero-subtitle {
-        font-size: 1.2rem;
+        font-size: 1.5rem;
         color: #CBD5E1;
         margin-bottom: 3rem;
     }
 
-    /* Feature cards */
     .feature-card {
         background: linear-gradient(145deg, #1E293B, #0F172A);
         border: 1px solid #334155;
@@ -80,7 +67,6 @@ st.markdown("""
         box-shadow: 0 10px 30px rgba(99, 102, 241, 0.2);
     }
 
-    /* Style buttons */
     .stButton>button {
         background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
         color: #FFFFFF;
@@ -102,49 +88,20 @@ st.markdown("""
         box-shadow: 0 5px 20px rgba(99, 102, 241, 0.4);
     }
 
-    .feature-icon {
-        font-size: 4rem;
-        margin-bottom: 1.5rem;
-    }
+    .feature-icon { font-size: 4rem; margin-bottom: 1.5rem; }
+    .feature-title { font-size: 1.8rem; font-weight: 700; color: #F1F5F9; margin-bottom: 1rem; }
+    .feature-description { font-size: 0.95rem; color: #CBD5E1; line-height: 1.6; }
 
-    .feature-title {
-        font-size: 1.8rem;
-        font-weight: 700;
-        color: #F1F5F9;
-        margin-bottom: 1rem;
-    }
-
-    .feature-description {
-        font-size: 0.95rem;
-        color: #CBD5E1;
-        line-height: 1.6;
-    }
-
-    /* Footer */
-    .footer {
-        text-align: center;
-        color: #64748B;
-        font-size: 0.85rem;
-        padding: 3rem 0 1rem 0;
-        margin-top: 4rem;
-    }
+    .footer { text-align: center; color: #64748B; font-size: 0.85rem; padding: 3rem 0 1rem 0; margin-top: 4rem; }
 </style>
 """, unsafe_allow_html=True)
 
 # Hero section with logo
-from PIL import Image
-import os
-
-# Display logo as circle
 logo_path = os.path.join(os.path.dirname(__file__), 'assets', 'logo.jpeg')
 if os.path.exists(logo_path):
-    import base64
-
-    # Convert image to base64
     with open(logo_path, "rb") as img_file:
         img_base64 = base64.b64encode(img_file.read()).decode()
 
-    # Display as circular image with custom CSS
     st.markdown(f"""
     <div style="display: flex; justify-content: center; margin-bottom: 1.5rem;">
         <img src="data:image/jpeg;base64,{img_base64}"
@@ -153,37 +110,33 @@ if os.path.exists(logo_path):
     </div>
     """, unsafe_allow_html=True)
 
-# Subtitle only (logo already has MELORA text)
+# Subtitle
 st.markdown("""
 <div style="text-align: center;">
-    <div class="hero-subtitle" style="font-size: 1.5rem; margin-top: 1rem;">Music  Recommendation System</div>
+    <div class="hero-subtitle">Music Recommendation System</div>
 </div>
 """, unsafe_allow_html=True)
 
-# Two-column layout for cards
-col1 = st.columns(1, gap="large")
-
-with col1:
-    # Music Card
-    st.markdown("""
-    <div class="feature-card">
-        <div class="feature-icon">🎵</div>
-        <div class="feature-title">Music</div>
-        <div class="feature-description">
-            Discover songs based on your mood<br>
-            • Mood-based filtering<br>
-            • 114,000+ songs<br>
-            • Interactive analytics
-        </div>
+# Music Card
+st.markdown("""
+<div class="feature-card">
+    <div class="feature-icon">🎵</div>
+    <div class="feature-title">Music</div>
+    <div class="feature-description">
+        Discover songs based on your mood<br>
+        • Mood-based filtering<br>
+        • 114,000+ songs<br>
+        • Interactive analytics
     </div>
-    """, unsafe_allow_html=True)
+</div>
+""", unsafe_allow_html=True)
 
-    if st.button("Explore Music", key="music_btn", use_container_width=True):
-        st.switch_page("pages/1_Music.py")
+if st.button("Explore Music", key="music_btn", use_container_width=True):
+    st.switch_page("pages/1_Music.py")
 
 # Footer
 st.markdown("""
 <div class="footer">
-    MELORA • Final Project Kelompok 4 • AI-Powered Recommendations
+    MELORA • Final Project Kelompok 4 • AI-Powered Music Recommendations
 </div>
 """, unsafe_allow_html=True)
