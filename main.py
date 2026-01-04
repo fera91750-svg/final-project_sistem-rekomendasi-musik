@@ -156,12 +156,12 @@ if os.path.exists(logo_path):
 # Subtitle only (logo already has MELORA text)
 st.markdown("""
 <div style="text-align: center;">
-    <div class="hero-subtitle" style="font-size: 1.5rem; margin-top: 1rem;">Music & Film Recommendation System</div>
+    <div class="hero-subtitle" style="font-size: 1.5rem; margin-top: 1rem;">Music  Recommendation System</div>
 </div>
 """, unsafe_allow_html=True)
 
 # Two-column layout for cards
-col1, col2 = st.columns(2, gap="large")
+col1 = st.columns(1, gap="large")
 
 with col1:
     # Music Card
@@ -180,24 +180,6 @@ with col1:
 
     if st.button("Explore Music", key="music_btn", use_container_width=True):
         st.switch_page("pages/1_Music.py")
-
-with col2:
-    # Film Card
-    st.markdown("""
-    <div class="feature-card">
-        <div class="feature-icon">🎬</div>
-        <div class="feature-title">Film</div>
-        <div class="feature-description">
-            Find your next favorite movie<br>
-            • Smart filters<br>
-            • 7,400+ films<br>
-            • Platform suggestions
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    if st.button("Explore Film", key="film_btn", use_container_width=True):
-        st.switch_page("pages/2_Film.py")
 
 # Footer
 st.markdown("""
