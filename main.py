@@ -89,7 +89,7 @@ st.markdown("""
     }
 
     .feature-icon { font-size: 4rem; margin-bottom: 1.5rem; }
-    .feature-title { font-size: 1.8rem; font-weight: 700; color: #F1F5F9; margin-bottom: 1rem; }
+    .feature-title { font-size: 1.8rem; font-weight: 700; color: #000000; margin-bottom: 1rem; }
     .feature-description { font-size: 0.95rem; color: #CBD5E1; line-height: 1.6; }
 
     .footer { text-align: center; color: #64748B; font-size: 0.85rem; padding: 3rem 0 1rem 0; margin-top: 4rem; }
