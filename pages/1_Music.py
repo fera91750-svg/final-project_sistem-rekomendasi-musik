@@ -119,7 +119,7 @@ st.markdown("""
     .stButton > button[kind="primary"] {
         background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
         border: none;
-        color: #FFFFFF;
+        color: #000000;
     }
 
     .stButton > button[kind="primary"]:hover {
