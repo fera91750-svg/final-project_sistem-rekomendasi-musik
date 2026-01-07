@@ -103,10 +103,15 @@ if os.path.exists(logo_path):
         img_base64 = base64.b64encode(img_file.read()).decode()
 
     st.markdown(f"""
-    <div style="display: flex; justify-content: center; margin-bottom: 1.5rem;">
+    <div style="
+        display: flex;
+        justify-content: center;
+        margin-top: 20px;
+        margin-bottom: 1rem;
+    ">
         <img src="data:image/jpeg;base64,{img_base64}"
-             style="width: 300px; height: 300px; border-radius: 50%;
-                    object-fit: cover; box-shadow: 0 10px 40px rgba(99, 102, 241, 0.3);">
+             style="width: 200px; height: 200px; border-radius: 50%;
+                    object-fit: cover; box-shadow: 0 8px 30px rgba(99, 102, 241, 0.3);">
     </div>
     """, unsafe_allow_html=True)
 
