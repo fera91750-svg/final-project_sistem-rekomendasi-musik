@@ -97,31 +97,22 @@ class MusicRecommendationEngine:
             # Use rule-based classification
             self.df['mood'] = self.df.apply(self._classify_mood_rule_based, axis=1)
             print("Using rule-based mood classification")
-
     def get_recommendations_by_mood(self, mood, n=10):
-        """
-        Get song recommendations by mood
-
-        Args:
-            mood (str): One of ['Happy', 'Sad', 'Calm', 'Tense']
-            n (int): Number of recommendations
-
-        Returns:
-            DataFrame: Recommended songs
-        """
         if mood not in self.moods:
             raise ValueError(f"Mood must be one of {self.moods}")
 
-        # Filter by mood
+        # Filter berdasarkan mood
         filtered = self.df[self.df['mood'] == mood]
 
-        # Sort by popularity and get top N
-        recommendations = filtered.nlargest(n, 'popularity')
+        # AMBIL TOP 50 DULU, LALU ACAK n LAGU DARI SANA
+        # Agar tetap merekomendasikan lagu bagus, tapi tidak itu-itu saja
+        top_pool = filtered.nlargest(50, 'popularity') 
+        recommendations = top_pool.sample(min(n, len(top_pool)))
 
         return recommendations[['track_name', 'artists', 'album_name',
-                               'track_id', 'popularity', 'valence',
-                               'energy', 'track_genre', 'mood']]
-
+                           'track_id', 'popularity', 'valence',
+                           'energy', 'track_genre', 'mood']]
+ 
     def get_recommendations_by_genre(self, genre, n=10):
         """
         Get song recommendations by genre
@@ -145,35 +136,25 @@ class MusicRecommendationEngine:
         return recommendations[['track_name', 'artists', 'album_name',
                                'track_id', 'popularity', 'valence',
                                'energy', 'track_genre', 'mood']]
-
+  
     def get_recommendations_by_mood_and_genre(self, mood, genre, n=10):
-        """
-        Get song recommendations by both mood and genre
-
-        Args:
-            mood (str): Mood category
-            genre (str): Music genre
-            n (int): Number of recommendations
-
-        Returns:
-            DataFrame: Recommended songs
-        """
-        # Filter by both mood and genre
-        filtered = self.df[
-            (self.df['mood'] == mood) &
-            (self.df['track_genre'] == genre)
+    filtered = self.df[
+        (self.df['mood'] == mood) & 
+        (self.df['track_genre'] == genre)
         ]
 
-        if filtered.empty:
-            return pd.DataFrame()
+    if filtered.empty:
+        return pd.DataFrame()
 
-        # Sort by popularity
-        recommendations = filtered.nlargest(n, 'popularity')
+    # Ambil pool yang agak besar (misal 30 lagu), lalu acak
+    pool_size = max(n * 3, 30)
+    top_pool = filtered.nlargest(pool_size, 'popularity')
+    recommendations = top_pool.sample(min(n, len(top_pool)))
 
-        return recommendations[['track_name', 'artists', 'album_name',
-                               'track_id', 'popularity', 'valence',
-                               'energy', 'track_genre', 'mood']]
-
+    return recommendations[['track_name', 'artists', 'album_name',
+                           'track_id', 'popularity', 'valence',
+                           'energy', 'track_genre', 'mood']]
+    
     def get_mood_distribution(self):
         """
         Get mood distribution for visualization
