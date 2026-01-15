@@ -1,20 +1,15 @@
 """
 Music Recommendation Engine
-Handles music data loading, mood classification, and recommendations
+Anti-duplicate, unlimited recommendations, Spotify full embed
 """
 
 import pandas as pd
-import numpy as np
 import joblib
 import os
 import streamlit as st
 
 
 class MusicRecommendationEngine:
-    """
-    Modular music recommendation engine
-    Can work with or without trained models
-    """
 
     def __init__(self):
         self.df = None
@@ -24,250 +19,119 @@ class MusicRecommendationEngine:
         self.moods = ['Happy', 'Sad', 'Calm', 'Tense']
         self._load_data()
 
+    # ===================== LOAD DATA =====================
     @st.cache_resource
     def _load_data(_self):
-        """Load music dataset and models (cached for performance)"""
         try:
-            # Get the correct path
             current_dir = os.path.dirname(__file__)
             data_dir = os.path.join(current_dir, "..", "data", "music")
 
-            # Load dataset
             dataset_path = os.path.join(data_dir, "dataset.csv")
             _self.df = pd.read_csv(dataset_path)
 
-            # Try to load trained models
+            # Load ML model if exists
             try:
                 model_path = os.path.join(data_dir, "music_mood_model.pkl")
                 encoder_path = os.path.join(data_dir, "label_encoder.pkl")
-
                 _self.model = joblib.load(model_path)
                 _self.label_encoder = joblib.load(encoder_path)
-
-                print("Trained models loaded successfully!")
-            except Exception as e:
-                print(f"Models not loaded, using rule-based classification: {e}")
+                print("✅ Model loaded")
+            except:
                 _self.model = None
                 _self.label_encoder = None
+                print("⚠️ Model not found, using rule-based")
 
-            # Add mood column using rule-based or model-based classification
             _self._add_mood_column()
 
-            # Get unique genres
-            _self.genres = sorted(_self.df['track_genre'].unique().tolist())
+            # 🔥 ANTI DUPLIKAT GLOBAL
+            _self.df = _self.df.drop_duplicates(subset="track_id")
 
-            print(f"Dataset loaded: {len(_self.df)} songs, {len(_self.genres)} genres")
+            _self.genres = sorted(_self.df['track_genre'].unique().tolist())
+            print(f"🎵 Dataset: {len(_self.df)} unique songs")
 
         except Exception as e:
-            print(f"Error loading data: {e}")
-            raise
+            raise RuntimeError(f"Load error: {e}")
 
+    # ===================== MOOD CLASSIFICATION =====================
     def _classify_mood_rule_based(self, row):
-        """
-        Rule-based mood classification
-        Based on valence and energy values
-        """
-        valence = row['valence']
-        energy = row['energy']
-
-        if valence >= 0.5 and energy >= 0.5:
+        if row['valence'] >= 0.5 and row['energy'] >= 0.5:
             return 'Happy'
-        elif valence < 0.5 and energy < 0.5:
+        elif row['valence'] < 0.5 and row['energy'] < 0.5:
             return 'Sad'
-        elif valence >= 0.5 and energy < 0.5:
+        elif row['valence'] >= 0.5 and row['energy'] < 0.5:
             return 'Calm'
         else:
             return 'Tense'
 
     def _add_mood_column(self):
-        """Add mood column to dataframe"""
-        if self.model is not None and self.label_encoder is not None:
-            # Use trained model
+        if self.model is not None:
             try:
-                features = ['danceability', 'energy', 'valence', 'tempo',
-                           'acousticness', 'instrumentalness', 'loudness', 'speechiness']
+                features = [
+                    'danceability', 'energy', 'valence', 'tempo',
+                    'acousticness', 'instrumentalness',
+                    'loudness', 'speechiness'
+                ]
                 X = self.df[features]
-                mood_encoded = self.model.predict(X)
-                self.df['mood'] = self.label_encoder.inverse_transform(mood_encoded)
-                print("Using model-based mood classification")
-            except Exception as e:
-                print(f"Model prediction failed, falling back to rule-based: {e}")
-                self.df['mood'] = self.df.apply(self._classify_mood_rule_based, axis=1)
-        else:
-            # Use rule-based classification
-            self.df['mood'] = self.df.apply(self._classify_mood_rule_based, axis=1)
-            print("Using rule-based mood classification")
+                encoded = self.model.predict(X)
+                self.df['mood'] = self.label_encoder.inverse_transform(encoded)
+                return
+            except:
+                pass
 
-    def get_recommendations_by_mood(self, mood, n=10):
+        self.df['mood'] = self.df.apply(self._classify_mood_rule_based, axis=1)
+
+    # ===================== RECOMMENDATION CORE =====================
+    def _shuffle_unique(self, df):
         """
-        Get song recommendations by mood
-
-        Args:
-            mood (str): One of ['Happy', 'Sad', 'Calm', 'Tense']
-            n (int): Number of recommendations
-
-        Returns:
-            DataFrame: Recommended songs
+        Shuffle + anti duplicate Spotify ID
         """
-        if mood not in self.moods:
-            raise ValueError(f"Mood must be one of {self.moods}")
+        return (
+            df.drop_duplicates(subset="track_id")
+              .sample(frac=1, random_state=None)
+              .reset_index(drop=True)
+        )
 
-        # Filter by mood
+    def recommend_by_mood(self, mood):
         filtered = self.df[self.df['mood'] == mood]
+        return self._shuffle_unique(filtered)
 
-        # Sort by popularity and get top N
-        recommendations = filtered.nlargest(n, 'popularity')
-
-        return recommendations[['track_name', 'artists', 'album_name',
-                               'track_id', 'popularity', 'valence',
-                               'energy', 'track_genre', 'mood']]
-
-    def get_recommendations_by_genre(self, genre, n=10):
-        """
-        Get song recommendations by genre
-
-        Args:
-            genre (str): Music genre
-            n (int): Number of recommendations
-
-        Returns:
-            DataFrame: Recommended songs
-        """
-        # Filter by genre
+    def recommend_by_genre(self, genre):
         filtered = self.df[self.df['track_genre'] == genre]
+        return self._shuffle_unique(filtered)
 
-        if filtered.empty:
-            return pd.DataFrame()
-
-        # Sort by popularity
-        recommendations = filtered.nlargest(n, 'popularity')
-
-        return recommendations[['track_name', 'artists', 'album_name',
-                               'track_id', 'popularity', 'valence',
-                               'energy', 'track_genre', 'mood']]
-
-    def get_recommendations_by_mood_and_genre(self, mood, genre, n=10):
-        """
-        Get song recommendations by both mood and genre
-
-        Args:
-            mood (str): Mood category
-            genre (str): Music genre
-            n (int): Number of recommendations
-
-        Returns:
-            DataFrame: Recommended songs
-        """
-        # Filter by both mood and genre
+    def recommend_by_mood_and_genre(self, mood, genre):
         filtered = self.df[
             (self.df['mood'] == mood) &
             (self.df['track_genre'] == genre)
         ]
+        return self._shuffle_unique(filtered)
 
-        if filtered.empty:
-            return pd.DataFrame()
-
-        # Sort by popularity
-        recommendations = filtered.nlargest(n, 'popularity')
-
-        return recommendations[['track_name', 'artists', 'album_name',
-                               'track_id', 'popularity', 'valence',
-                               'energy', 'track_genre', 'mood']]
-
-    def get_mood_distribution(self):
-        """
-        Get mood distribution for visualization
-
-        Returns:
-            dict: Mood counts
-        """
-        return self.df['mood'].value_counts().to_dict()
-
-    def get_genre_distribution(self, mood=None):
-        """
-        Get genre distribution, optionally filtered by mood
-
-        Args:
-            mood (str, optional): Filter by mood
-
-        Returns:
-            dict: Genre counts
-        """
-        if mood:
-            filtered = self.df[self.df['mood'] == mood]
-        else:
-            filtered = self.df
-
-        return filtered['track_genre'].value_counts().head(20).to_dict()
-
-    def get_mood_stats(self):
-        """
-        Get statistical summary of moods
-
-        Returns:
-            DataFrame: Mood statistics
-        """
-        stats = self.df.groupby('mood').agg({
-            'valence': 'mean',
-            'energy': 'mean',
-            'danceability': 'mean',
-            'acousticness': 'mean',
-            'popularity': 'mean'
-        }).round(3)
-
-        return stats
-
+    # ===================== SPOTIFY EMBED =====================
     @staticmethod
-    def create_spotify_embed(track_id, width=300, height=380):
+    def spotify_embed(track_id):
         """
-        Create Spotify embed HTML
-
-        Args:
-            track_id (str): Spotify track ID
-            width (int): Player width
-            height (int): Player height
-
-        Returns:
-            str: HTML iframe code
+        FULL SONG (login Spotify)
         """
-        return f'''
-        <iframe src="https://open.spotify.com/embed/track/{track_id}"
-                width="{width}"
-                height="{height}"
-                frameborder="0"
-                allowtransparency="true"
-                allow="encrypted-media">
+        return f"""
+        <iframe
+            src="https://open.spotify.com/embed/track/{track_id}"
+            width="100%"
+            height="380"
+            frameborder="0"
+            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture">
         </iframe>
-        '''
-
-    @staticmethod
-    def create_spotify_search_link(track_name, artist):
         """
-        Create Spotify search link
 
-        Args:
-            track_name (str): Song title
-            artist (str): Artist name
-
-        Returns:
-            str: Spotify search URL
-        """
-        query = f"{track_name} {artist}".replace(" ", "+")
-        return f"https://open.spotify.com/search/{query}"
-
-    def get_available_genres(self):
-        """Get list of available genres"""
-        return self.genres
-
+    # ===================== UTIL =====================
     def get_available_moods(self):
-        """Get list of available moods"""
         return self.moods
 
+    def get_available_genres(self):
+        return self.genres
+
     def get_dataset_info(self):
-        """Get dataset information"""
         return {
-            'total_songs': len(self.df),
-            'total_genres': len(self.genres),
-            'total_artists': self.df['artists'].nunique(),
-            'moods': self.get_mood_distribution()
+            "total_songs": len(self.df),
+            "unique_artists": self.df["artists"].nunique(),
+            "genres": len(self.genres)
         }
