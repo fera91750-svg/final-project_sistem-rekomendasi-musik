@@ -57,9 +57,10 @@ class MusicChatbot:
         User sedang merasa {mood}.
         Buat respon singkat, ramah, dan empatik dalam Bahasa Indonesia yang cocok dengan perasaan tersebut.
         HANYA berikan 1-2 kalimat pengantar saja. 
+        Jika user menyebutkan kegiatan spesifik (seperti seminar, ujian, kerja), berikan semangat khusus untuk kegiatan itu.
         Jangan menyebutkan judul lagu atau list lagu di sini.
-        """
-        
+        """        
+      
         try:
             llm_response = self.model.generate_content(prompt)
             intro_text = llm_response.text.strip()
