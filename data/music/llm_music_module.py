@@ -20,7 +20,7 @@ from langgraph.checkpoint.memory import MemorySaver
 
 class MusicLLMChatbot:
     """
-    Music recommendation chatbot using Gemini 2.5 Flash
+    Music recommendation chatbot using Gemini 2.5 Flash Lite
     """
 
     def __init__(self, music_df, model=None, label_encoder=None, api_key=None):
@@ -149,7 +149,7 @@ dengan penjelasan yang alami dan mudah dipahami.
         try:
             # Initialize Gemini 2.5 Flash (free tier compatible)
             self.llm = ChatGoogleGenerativeAI(
-                model="gemini-2.5-flash",
+                model="gemini-2.5-flash-lite",
                 temperature=0.3,
                 api_key=self.api_key,
                 thinking_budget=0,      # Disable thinking to prevent internal reasoning exposure
