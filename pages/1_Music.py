@@ -7,6 +7,12 @@ import streamlit as st
 import sys
 import os
 
+# === STREAMLIT CLOUD API KEY CHECK ===
+if not os.getenv("GOOGLE_API_KEY"):
+    st.error("⚠️ GOOGLE_API_KEY tidak ditemukan.")
+    st.info("Set di Streamlit Cloud → Settings → Secrets")
+    st.stop()
+
 # Add parent directory to path
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
@@ -18,10 +24,7 @@ from utils.visualizations import (
     create_genre_bar_chart,
     create_audio_features_radar
 )
-from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
 
 # Page config
 st.set_page_config(
@@ -474,17 +477,9 @@ elif selected_tab == "🎯 Predict Mood":
 elif selected_tab == "💬 Chat Assistant":
     st.markdown("## 💬 Music Chat Assistant")
 
-    # Check if API key is available
-    if not os.getenv("GOOGLE_API_KEY"):
-        st.error("⚠️ **GOOGLE_API_KEY not found!**")
-        with st.container(border=True):
-            st.markdown("""
-            ### Setup Instructions:
-            1. Create a `.env` file in the `streamlit_app` directory
-            2. Add your Google API key: `GOOGLE_API_KEY=your_api_key_here`
-            3. Get your API key from: [Google AI Studio](https://aistudio.google.com/app/apikey)
-            4. Restart the Streamlit app
-            """)
+   # API key already validated at app startup
+pass
+
     else:
         # Initialize chat history in session state
         if 'chat_history' not in st.session_state:
