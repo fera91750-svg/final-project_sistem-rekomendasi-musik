@@ -8,6 +8,18 @@ This file acts as a bridge between the LLM module and Streamlit UI
 import sys
 import os
 
+import google.generativeai as genai
+
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+
+if not GOOGLE_API_KEY:
+    raise RuntimeError(
+        "GOOGLE_API_KEY tidak ditemukan. "
+        "Set di Streamlit Cloud → Settings → Secrets"
+    )
+
+genai.configure(api_key=GOOGLE_API_KEY)
+
 # Add data/music folder to path
 data_music_folder = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'music')
 sys.path.insert(0, data_music_folder)
