@@ -69,6 +69,11 @@ class MusicChatbot:
         User merasa {mood}.
         Buat respon singkat, ramah, dan empatik dalam Bahasa Indonesia.
         Jangan rekomendasikan lagu di teks.
+        ATURAN WAJIB:
+        - JANGAN menyebutkan judul lagu
+        - JANGAN membuat daftar rekomendasi
+        - JANGAN menyebut artis
+        - HANYA kalimat pengantar saja (1–2 kalimat)
         """
 
         response = self.model.generate_content(prompt)
