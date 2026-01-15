@@ -5,7 +5,7 @@ Hybrid: LLM for understanding + Engine for recommendation
 
 import os
 import google.generativeai as genai
-
+import pandas as pd
 
 # =========================
 # API KEY CONFIG
@@ -24,14 +24,14 @@ genai.configure(api_key=GOOGLE_API_KEY)
 class MusicChatbot:
     def __init__(self, music_engine):
         self.engine = music_engine
-        self.model = genai.GenerativeModel("gemini-2.5-flash")
+        # Gunakan model yang tersedia (flash 1.5 atau 2.0)
+        self.model = genai.GenerativeModel("gemini-1.5-flash")
 
     # =========================
     # SIMPLE MOOD DETECTION
     # =========================
     def detect_mood(self, text: str) -> str:
         text = text.lower()
-
         if any(k in text for k in ["sedih", "galau", "kecewa", "nangis"]):
             return "Sad"
         if any(k in text for k in ["senang", "bahagia", "happy"]):
@@ -40,7 +40,6 @@ class MusicChatbot:
             return "Calm"
         if any(k in text for k in ["marah", "emosi", "stress", "tegang"]):
             return "Tense"
-
         return "Happy"
 
     # =========================
@@ -50,35 +49,43 @@ class MusicChatbot:
         # 1. Detect mood
         mood = self.detect_mood(user_text)
 
-        # 2. Get songs from engine
+        # 2. Get songs from engine (Menggunakan fungsi random yang baru)
         songs_df = self.engine.get_recommendations_by_mood(mood, n=5)
-
-        songs = []
-        for _, row in songs_df.iterrows():
-            songs.append({
-                "title": row["track_name"],
-                "artist": row["artists"],
-                "album": row["album_name"],
-                "genre": row["track_genre"],
-                "popularity": row["popularity"],
-                "track_id": row["track_id"]
-            })
 
         # 3. Generate natural language response (LLM)
         prompt = f"""
-        User merasa {mood}.
-        Buat respon singkat, ramah, dan empatik dalam Bahasa Indonesia.
-        Jangan rekomendasikan lagu di teks.
-        ATURAN WAJIB:
-        - JANGAN menyebutkan judul lagu
-        - JANGAN membuat daftar rekomendasi
-        - JANGAN menyebut artis
-        - HANYA kalimat pengantar saja (1–2 kalimat)
+        User sedang merasa {mood}.
+        Buat respon singkat, ramah, dan empatik dalam Bahasa Indonesia yang cocok dengan perasaan tersebut.
+        HANYA berikan 1-2 kalimat pengantar saja. 
+        Jangan menyebutkan judul lagu atau list lagu di sini.
         """
+        
+        try:
+            llm_response = self.model.generate_content(prompt)
+            intro_text = llm_response.text.strip()
+        except:
+            intro_text = "Berikut adalah beberapa lagu yang mungkin cocok dengan suasana hati Anda:"
 
-        response = self.model.generate_content(prompt)
+        # 4. GABUNGKAN TEKS DAN DAFTAR LAGU UNTUK TAMPILAN CHAT
+        full_message = f"{intro_text}\n\n**Rekomendasi Lagu untuk Mood {mood}:**\n\n"
+        
+        songs_data = []
+        if not songs_df.empty:
+            for i, row in songs_df.iterrows():
+                # Format Teks (Judul - Artis | Genre | Popularity)
+                song_info = f"{i+1}. **{row['track_name']}** – {row['artists']} | Genre: {row['track_genre']} | Popularity: {row['popularity']}\n"
+                full_message += song_info
+                
+                # Simpan data lagu untuk audio player
+                songs_data.append({
+                    "title": row["track_name"],
+                    "artist": row["artists"],
+                    "track_id": row["track_id"]
+                })
+        else:
+            full_message += "Maaf, saya tidak menemukan lagu yang cocok saat ini."
 
         return {
-            "text": response.text.strip(),
-            "songs": songs
+            "text": full_message,  # Ini berisi teks ramah + daftar lagu
+            "songs": songs_data    # Ini dikirim untuk kebutuhan Audio Player di UI
         }
