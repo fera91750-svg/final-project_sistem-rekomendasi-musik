@@ -1,100 +1,124 @@
 """
 Music Chatbot Engine for Streamlit
-Hybrid: LLM for understanding + Engine for recommendation (Chill Version)
+Wrapper that imports from data/music/llm_music_module.py
+
+This file acts as a bridge between the LLM module and Streamlit UI
 """
 
+import sys
 import os
-import google.generativeai as genai
-import pandas as pd
+import random
 
-# =========================
-# API KEY CONFIG
-# =========================
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+# Add data/music folder to path
+data_music_folder = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'music')
+sys.path.insert(0, data_music_folder)
 
-if not GOOGLE_API_KEY:
-    raise RuntimeError(
-        "GOOGLE_API_KEY tidak ditemukan. "
-        "Set di Streamlit Cloud → Settings → Secrets"
-    )
-
-genai.configure(api_key=GOOGLE_API_KEY)
+# Import from music module
+from llm_music_module import MusicLLMChatbot, create_chatbot
 
 
-class MusicChatbot:
+class MusicChatbot(MusicLLMChatbot):
+    """
+    Streamlit-specific wrapper for MusicLLMChatbot
+    Inherits all functionality from the music module
+    """
+
     def __init__(self, music_engine):
-        self.engine = music_engine
-        # Menggunakan model Gemini 1.5 Flash yang responsif
-        self.model = genai.GenerativeModel("gemini-1.5-flash")
+        """
+        Initialize chatbot with MusicRecommendationEngine
+        """
+        # Simpan engine untuk akses fungsi rekomendasi nanti
+        self.music_engine = music_engine
+        
+        # Extract components from engine
+        music_df = music_engine.df
+        model = music_engine.model
+        label_encoder = music_engine.label_encoder
 
-    # =========================
-    # CHAT MAIN FUNCTION
-    # =========================
+        # Initialize parent class
+        super().__init__(music_df, model, label_encoder)
+
     def chat(self, user_text: str, thread_id=None):
-        # 1. Prompt dengan gaya bahasa santai/chill
-        prompt = f"""
+        """
+        Overriding chat method supaya jawabannya lebih chill, 
+        responsif terhadap input (Seminar MSIB), dan anti-error.
+        """
+        
+        # 1. Instruksi tambahan agar Gemini menjawab santai & personal
+        # Kita memodifikasi prompt internal yang biasanya ada di llm_music_module
+        custom_prompt = f"""
         User curhat: "{user_text}"
         
-        Tugas Anda:
-        1. Jadilah teman curhat yang asik, chill, dan friendly. Gunakan Bahasa Indonesia yang santai (nggak kaku).
-        2. Berikan respon empati yang tulus. Kalau user bilang mau seminar MSIB, ujian, atau lagi capek, kasih semangat yang hangat kayak temen deket.
-        3. Gunakan sedikit emoji biar suasananya makin seru.
-        4. Tentukan satu kategori mood musik yang paling pas (Happy, Sad, Calm, atau Tense).
+        Aturan Main:
+        - Kamu adalah teman curhat yang CHILL, SANTAI, dan GAUL.
+        - JANGAN kaku. Pakai 'aku-kamu'. 
+        - Jika user bahas seminar MSIB atau hal spesifik, kasih semangat yang hangat & personal.
+        - Tentukan Mood: Happy, Sad, Calm, atau Tense.
         
-        Format jawaban wajib:
-        Kategori: [Nama Mood]
-        Respon: [Isi kalimat dukungan santai kamu]
+        Format Balasan:
+        Mood: [Nama Mood]
+        Chat: [Kalimat dukungan asik kamu]
         """
 
         try:
-            # Meminta Gemini menganalisis perasaan user
-            raw_response = self.model.generate_content(prompt).text
+            # Memanggil fungsi generate dari parent class (Gemini)
+            raw_response = self.model.generate_content(custom_prompt).text
+            
+            # Parsing Mood dan Chat
             lines = raw_response.split('\n')
-            detected_mood = "Happy" # Default jika gagal
+            detected_mood = "Happy"
             support_msg = ""
             
-            # Parsing hasil dari Gemini
             for line in lines:
-                if "Kategori:" in line:
+                if "Mood:" in line:
                     for m in ["Happy", "Sad", "Calm", "Tense"]:
-                        if m.lower() in line.lower(): 
-                            detected_mood = m
-                if "Respon:" in line:
-                    support_msg = line.replace("Respon:", "").strip()
+                        if m.lower() in line.lower(): detected_mood = m
+                if "Chat:" in line:
+                    support_msg = line.replace("Chat:", "").strip()
             
-            # Jika format parsing gagal, gunakan teks mentah
-            if not support_msg: 
-                support_msg = raw_response.strip()
-                
+            if not support_msg: support_msg = raw_response.strip()
+
         except Exception:
+            # Fallback jika API Error (Tetap Personal & Santai)
+            user_lower = user_text.lower()
             detected_mood = "Happy"
-            support_msg = "Semangat terus ya! Aku yakin kamu pasti bisa ngelewatin hari ini dengan keren banget. ✨"
+            if "seminar" in user_lower or "msib" in user_lower:
+                support_msg = "Wih, semangat pol buat seminar MSIB-nya! Santai aja, kamu pasti tampil pecah hari ini! 🔥"
+            else:
+                support_msg = "Semangat terus ya! Kamu pasti bisa ngelewatin ini dengan cara yang paling asik. ✨"
 
-        # 2. Ambil lagu dari music_engine berdasarkan mood
-        songs_df = self.engine.get_recommendations_by_mood(detected_mood, n=5)
+        # 2. Ambil lagu menggunakan engine (Randomized)
+        songs_df = self.music_engine.get_recommendations_by_mood(detected_mood, n=5)
 
-        # 3. Susun Pesan Teks dan List Data Lagu Lengkap untuk UI
-        full_text = f"{support_msg}\n\n**Nih, ada beberapa lagu yang cocok buat nemenin mood {detected_mood} kamu:**\n"
+        # 3. Variasi Kalimat Pembuka
+        intros = [
+            f"Nih, ada beberapa lagu yang pas banget buat nemenin mood {detected_mood} kamu:",
+            f"Biar makin chill, dengerin lagu-lagu {detected_mood} pilihan aku ini deh:",
+            f"Coba dengerin playlist {detected_mood} ini, siapa tau bikin makin asik:"
+        ]
+        
+        full_text = f"{support_msg}\n\n**{random.choice(intros)}**\n"
         songs_data = []
         
         if not songs_df.empty:
             for i, row in songs_df.iterrows():
-                # List teks simpel di balon chat
                 full_text += f"{i+1}. **{row['track_name']}** – {row['artists']}\n"
                 
-                # Data lengkap agar tidak terjadi KeyError di pages/1_Music.py
+                # Menyiapkan data lengkap agar TIDAK error KeyError: 'album'
                 songs_data.append({
                     "title": row["track_name"],
                     "artist": row["artists"],
-                    "album": row.get("album_name", "No Album"),
+                    "album": row.get("album_name", "Unknown Album"),
                     "genre": row.get("track_genre", "Music"),
                     "popularity": row.get("popularity", 0),
                     "track_id": row["track_id"]
                 })
-        else:
-            full_text += "Duh, aku belum nemu lagu yang pas nih buat sekarang. Tapi tetep semangat ya! 🙌"
 
         return {
             "text": full_text, 
             "songs": songs_data
         }
+
+
+# Export for easy import in Streamlit
+__all__ = ['MusicChatbot', 'create_chatbot']
