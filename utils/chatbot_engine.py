@@ -1,15 +1,15 @@
 """
 Music Chatbot Engine for Streamlit
-Wrapper that imports from data/music/llm_music_module.py
-
-This file acts as a bridge between the LLM module and Streamlit UI
+Hybrid: LLM for understanding + Engine for recommendation
 """
 
-import sys
 import os
-
 import google.generativeai as genai
 
+
+# =========================
+# API KEY CONFIG
+# =========================
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 if not GOOGLE_API_KEY:
@@ -20,35 +20,60 @@ if not GOOGLE_API_KEY:
 
 genai.configure(api_key=GOOGLE_API_KEY)
 
-# Add data/music folder to path
-data_music_folder = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'music')
-sys.path.insert(0, data_music_folder)
 
-# Import from music module
-from llm_music_module import MusicLLMChatbot, create_chatbot
-
-
-class MusicChatbot(MusicLLMChatbot):
-    """
-    Streamlit-specific wrapper for MusicLLMChatbot
-    Inherits all functionality from the music module
-    """
-
+class MusicChatbot:
     def __init__(self, music_engine):
+        self.engine = music_engine
+        self.model = genai.GenerativeModel("gemini-2.5-flash")
+
+    # =========================
+    # SIMPLE MOOD DETECTION
+    # =========================
+    def detect_mood(self, text: str) -> str:
+        text = text.lower()
+
+        if any(k in text for k in ["sedih", "galau", "kecewa", "nangis"]):
+            return "Sad"
+        if any(k in text for k in ["senang", "bahagia", "happy"]):
+            return "Happy"
+        if any(k in text for k in ["tenang", "santai", "relax", "calm"]):
+            return "Calm"
+        if any(k in text for k in ["marah", "emosi", "stress", "tegang"]):
+            return "Tense"
+
+        return "Happy"
+
+    # =========================
+    # CHAT MAIN FUNCTION
+    # =========================
+    def chat(self, user_text: str, thread_id=None):
+        # 1. Detect mood
+        mood = self.detect_mood(user_text)
+
+        # 2. Get songs from engine
+        songs_df = self.engine.get_recommendations_by_mood(mood, n=5)
+
+        songs = []
+        for _, row in songs_df.iterrows():
+            songs.append({
+                "title": row["track_name"],
+                "artist": row["artists"],
+                "album": row["album_name"],
+                "genre": row["track_genre"],
+                "popularity": row["popularity"],
+                "track_id": row["track_id"]
+            })
+
+        # 3. Generate natural language response (LLM)
+        prompt = f"""
+        User merasa {mood}.
+        Buat respon singkat, ramah, dan empatik dalam Bahasa Indonesia.
+        Jangan rekomendasikan lagu di teks.
         """
-        Initialize chatbot with MusicRecommendationEngine
 
-        Args:
-            music_engine: MusicRecommendationEngine instance from Streamlit
-        """
-        # Extract components from engine
-        music_df = music_engine.df
-        model = music_engine.model
-        label_encoder = music_engine.label_encoder
+        response = self.model.generate_content(prompt)
 
-        # Initialize parent class
-        super().__init__(music_df, model, label_encoder)
-
-
-# Export for easy import in Streamlit
-__all__ = ['MusicChatbot', 'create_chatbot']
+        return {
+            "text": response.text.strip(),
+            "songs": songs
+        }
