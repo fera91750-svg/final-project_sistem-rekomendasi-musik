@@ -24,68 +24,78 @@ genai.configure(api_key=GOOGLE_API_KEY)
 class MusicChatbot:
     def __init__(self, music_engine):
         self.engine = music_engine
-        # Gunakan model yang tersedia (flash 1.5 atau 2.0)
+        # Menggunakan model Gemini 1.5 Flash untuk pemrosesan cepat
         self.model = genai.GenerativeModel("gemini-1.5-flash")
-
-    # =========================
-    # SIMPLE MOOD DETECTION
-    # =========================
-    def detect_mood(self, text: str) -> str:
-        text = text.lower()
-        if any(k in text for k in ["sedih", "galau", "kecewa", "nangis"]):
-            return "Sad"
-        if any(k in text for k in ["senang", "bahagia", "happy"]):
-            return "Happy"
-        if any(k in text for k in ["tenang", "santai", "relax", "calm"]):
-            return "Calm"
-        if any(k in text for k in ["marah", "emosi", "stress", "tegang"]):
-            return "Tense"
-        return "Happy"
 
     # =========================
     # CHAT MAIN FUNCTION
     # =========================
     def chat(self, user_text: str, thread_id=None):
-        # 1. Detect mood
-        mood = self.detect_mood(user_text)
-
-        # 2. Get songs from engine (Menggunakan fungsi random yang baru)
-        songs_df = self.engine.get_recommendations_by_mood(mood, n=5)
-
-        # 3. Generate natural language response (LLM)
+        # 1. Prompt untuk Gemini agar memberikan respon empati & deteksi mood
         prompt = f"""
-        User sedang merasa {mood}.
-        Buat respon singkat, ramah, dan empatik dalam Bahasa Indonesia yang cocok dengan perasaan tersebut.
-        HANYA berikan 1-2 kalimat pengantar saja. 
-        Jangan menyebutkan judul lagu atau list lagu di sini.
+        User curhat: "{user_text}"
+        
+        Tugas Anda:
+        1. Berikan respon empati, ramah, dan sangat personal dalam Bahasa Indonesia. 
+           Jika user menyebut kegiatan khusus (seperti seminar MSIB, ujian, atau kerja), 
+           berikan semangat dan dukungan spesifik untuk kegiatan tersebut.
+        2. Tentukan satu kategori mood musik yang paling cocok (pilih salah satu: Happy, Sad, Calm, atau Tense).
+        
+        Format jawaban wajib:
+        Kategori: [Nama Mood]
+        Respon: [Isi kalimat dukungan Anda]
         """
-        
-        try:
-            llm_response = self.model.generate_content(prompt)
-            intro_text = llm_response.text.strip()
-        except:
-            intro_text = "Berikut adalah beberapa lagu yang mungkin cocok dengan suasana hati Anda:"
 
-        # 4. GABUNGKAN TEKS DAN DAFTAR LAGU UNTUK TAMPILAN CHAT
-        full_message = f"{intro_text}\n\n**Rekomendasi Lagu untuk Mood {mood}:**\n\n"
-        
+        try:
+            # Meminta Gemini menganalisis perasaan user
+            raw_response = self.model.generate_content(prompt).text
+            lines = raw_response.split('\n')
+            detected_mood = "Happy" # Default
+            support_msg = ""
+            
+            # Parsing hasil dari Gemini
+            for line in lines:
+                if "Kategori:" in line:
+                    for m in ["Happy", "Sad", "Calm", "Tense"]:
+                        if m.lower() in line.lower(): 
+                            detected_mood = m
+                if "Respon:" in line:
+                    support_msg = line.replace("Respon:", "").strip()
+            
+            # Jika parsing gagal, ambil seluruh teks sebagai respon
+            if not support_msg: 
+                support_msg = raw_response.strip()
+                
+        except Exception as e:
+            detected_mood = "Happy"
+            support_msg = "Wah, semangat ya untuk hari ini! Apapun yang kamu lalui, kamu pasti bisa menghadapinya dengan baik."
+
+        # 2. Ambil lagu dari music_engine berdasarkan mood yang dideteksi Gemini
+        # Fungsi ini sekarang menggunakan random sampling (dari perbaikan sebelumnya)
+        songs_df = self.engine.get_recommendations_by_mood(detected_mood, n=5)
+
+        # 3. Susun Pesan Teks dan List Data Lagu Lengkap untuk UI
+        full_text = f"{support_msg}\n\n**Rekomendasi lagu untuk mood {detected_mood}:**\n"
         songs_data = []
+        
         if not songs_df.empty:
             for i, row in songs_df.iterrows():
-                # Format Teks (Judul - Artis | Genre | Popularity)
-                song_info = f"{i+1}. **{row['track_name']}** – {row['artists']} | Genre: {row['track_genre']} | Popularity: {row['popularity']}\n"
-                full_message += song_info
+                # Menambahkan daftar lagu ke teks chat
+                full_text += f"{i+1}. **{row['track_name']}** – {row['artists']}\n"
                 
-                # Simpan data lagu untuk audio player
+                # Menyiapkan data lengkap untuk dikirim ke UI (Mencegah KeyError: 'album')
                 songs_data.append({
                     "title": row["track_name"],
                     "artist": row["artists"],
+                    "album": row.get("album_name", "Unknown Album"), # Mencegah error jika kolom kosong
+                    "genre": row.get("track_genre", "General"),      # Mencegah error jika kolom kosong
+                    "popularity": row.get("popularity", 0),
                     "track_id": row["track_id"]
                 })
         else:
-            full_message += "Maaf, saya tidak menemukan lagu yang cocok saat ini."
+            full_text += "Maaf, saya tidak menemukan lagu yang cocok saat ini. Tapi tetap semangat ya!"
 
         return {
-            "text": full_message,  # Ini berisi teks ramah + daftar lagu
-            "songs": songs_data    # Ini dikirim untuk kebutuhan Audio Player di UI
+            "text": full_text, 
+            "songs": songs_data
         }
