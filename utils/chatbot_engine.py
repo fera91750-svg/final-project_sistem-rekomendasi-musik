@@ -55,9 +55,9 @@ class MusicChatbot:
         # 3. Generate natural language response (LLM)
         prompt = f"""
         User sedang merasa {mood}.
-        Buat respon singkat, ramah, dan empatik dalam Bahasa Indonesia yang cocok dengan perasaan tersebut.
+        Buat respon ramah, dan empatik dalam Bahasa Indonesia yang cocok dengan perasaan tersebut.
         Jika user menyebutkan kegiatan spesifik (seperti seminar, ujian, kerja), berikan semangat khusus untuk kegiatan itu.
-        Jangan menyebutkan judul lagu atau list lagu di sini.
+        Setiap akhir kalimat sematkan kata semoga musik-muisik ini bisa membantu kamu yaaa
         """        
       
         try:
