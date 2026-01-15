@@ -26,34 +26,48 @@ class MusicChatbot(MusicLLMChatbot):
         super().__init__(music_df, model, label_encoder)
 
     def chat(self, user_text: str, thread_id=None):
-        # 1. Langsung pakai fungsi chat bawaan model LLM
-        # Model ini sudah punya kemampuan deteksi mood sendiri
+        # 1. Panggil fungsi chat asli dari LLM (Biarkan LLM yang berpikir & merangkai kata)
+        # LLM akan memberikan jawaban yang berbeda sesuai input (misal: seminar MSIB)
         response = super().chat(user_text, thread_id)
         
-        # Ambil mood yang dideteksi oleh LLM (biasanya ada di response['mood'])
-        # Jika tidak ada, default ke Happy
+        # Ambil teks jawaban asli dari LLM
+        llm_text = response.get('text', "")
+        
+        # Ambil mood yang dideteksi oleh LLM
         detected_mood = response.get('mood', 'Happy')
         
         # 2. Ambil lagu dari music_engine dengan fitur random (.sample)
-        # Ini agar lagu yang muncul tidak kaku dan tidak berulang
+        # n=5 lagu acak agar rekomendasi tidak itu-itu saja
         songs_df = self.music_engine.get_recommendations_by_mood(detected_mood, n=5)
 
-        # 3. Susun data lagu dengan lengkap (Wajib ada Album & Genre agar UI tidak error)
+        # 3. Susun data lagu untuk dikirim ke UI
+        # Kita sertakan semua informasi (album, genre, popularity) agar UI tidak error
         songs_data = []
+        
+        # Buat teks daftar lagu tambahan yang simpel untuk digabung ke teks LLM
+        song_list_text = f"\n\n**Nih, playlist {detected_mood} yang pas buat kamu:**\n"
+        
         if not songs_df.empty:
-            for _, row in songs_df.iterrows():
+            for i, row in songs_df.iterrows():
+                song_list_text += f"{i+1}. **{row['track_name']}** – {row['artists']}\n"
+                
                 songs_data.append({
                     "title": row["track_name"],
                     "artist": row["artists"],
-                    "album": row.get("album_name", "Unknown Album"), # Solusi KeyError
-                    "genre": row.get("track_genre", "Music"),       # Solusi KeyError
+                    "album": row.get("album_name", "Unknown Album"),
+                    "genre": row.get("track_genre", "Music"),
                     "popularity": row.get("popularity", 0),
                     "track_id": row["track_id"]
                 })
+            
+            # Gabungkan jawaban asli LLM dengan daftar lagu
+            # JADI: [Jawaban Kreatif LLM] + [Daftar Lagu]
+            final_display_text = f"{llm_text}\n{song_list_text}"
+        else:
+            final_display_text = llm_text
 
-        # 4. Return hasil yang sudah digabung
         return {
-            "text": response.get('text', "Nih, dengerin lagu ini biar makin asik!"),
+            "text": final_display_text,
             "songs": songs_data,
             "mood": detected_mood
         }
