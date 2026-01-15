@@ -102,7 +102,7 @@ st.markdown("""
     /* Buttons */
     .stButton > button {
         background-color: transparent;
-        color: #000000;
+        color: #F1F5F9;
         border: 1px solid #475569;
         border-radius: 500px;
         padding: 0.5rem 1.5rem;
@@ -119,7 +119,7 @@ st.markdown("""
     .stButton > button[kind="primary"] {
         background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
         border: none;
-        color: #000000;
+        color: #FFFFFF;
     }
 
     .stButton > button[kind="primary"]:hover {
@@ -432,7 +432,7 @@ elif selected_tab == "🎯 Predict Mood":
 
         # Show recommendations based on predicted mood
         st.markdown(f"### 🎵 Recommended Songs for {predicted_mood} Mood")
-     recommendations = engine.get_recommendations_by_mood(predicted_mood, n=10)
+        recommendations = engine.get_recommendations_by_mood(predicted_mood, n=10)
 
         for idx, song in recommendations.iterrows():
             with st.container(border=True):
