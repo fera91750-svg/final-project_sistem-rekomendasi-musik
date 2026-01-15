@@ -18,11 +18,6 @@ from utils.visualizations import (
     create_genre_bar_chart,
     create_audio_features_radar
 )
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
-
 # Page config
 st.set_page_config(
     page_title="Music Recommendations",
