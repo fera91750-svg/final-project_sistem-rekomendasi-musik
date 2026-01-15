@@ -116,7 +116,12 @@ class MusicRecommendationEngine:
         filtered = self.df[self.df['mood'] == mood]
 
         # Sort by popularity and get top N
-        recommendations = filtered.nlargest(n, 'popularity')
+       recommendations = (
+            filtered
+            .sort_values("popularity", ascending=False)
+            .drop_duplicates(subset=["track_name", "artists"])
+            .head(n)
+        )
 
         return recommendations[['track_name', 'artists', 'album_name',
                                'track_id', 'popularity', 'valence',
