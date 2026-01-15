@@ -432,7 +432,7 @@ elif selected_tab == "🎯 Predict Mood":
 
         # Show recommendations based on predicted mood
         st.markdown(f"### 🎵 Recommended Songs for {predicted_mood} Mood")
-        recommendations = engine.get_recommendations_by_mood(predicted_mood, n=10)
+     recommendations = engine.get_recommendations_by_mood(predicted_mood, 10)
 
         for idx, song in recommendations.iterrows():
             with st.container(border=True):
