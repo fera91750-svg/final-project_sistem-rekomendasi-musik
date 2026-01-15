@@ -144,28 +144,28 @@ dengan penjelasan yang alami dan mudah dipahami.
         if self.api_key:
             self._initialize_llm()
 
-    def _initialize_llm(self):
-        """Initialize LLM and agent"""
-        try:
-            # Initialize Gemini 2.5 Flash (free tier compatible)
-            self.llm = ChatGoogleGenerativeAI(
-                model="gemini-2.5-flash-lite",
-                temperature=0.3,
-                api_key=self.api_key,
-                thinking_budget=0,      # Disable thinking to prevent internal reasoning exposure
-                include_thoughts=False  # Ensure thoughts are not included in response
-            )
+   def _initialize_llm(self):
+    """Initialize Gemini Flash Lite LLM and agent"""
+    try:
+        if not self.api_key:
+            raise ValueError("GOOGLE_API_KEY tidak ditemukan")
 
-            # Create tools
-            tools = self._create_tools()
+        self.llm = ChatGoogleGenerativeAI(
+            model="gemini-2.5-flash-lite",
+            temperature=0.3,
+            api_key=self.api_key,
+        )
 
-            # Build LangGraph agent
-            self.agent = self._build_agent(tools)
+        tools = self._create_tools()
+        self.agent = self._build_agent(tools)
 
-            return True
-        except Exception as e:
-            print(f"Error initializing LLM: {e}")
-            return False
+        print("✅ Gemini Flash Lite berhasil diinisialisasi")
+        return True
+
+    except Exception as e:
+        print(f"❌ Error initializing LLM: {e}")
+        return False
+
 
     def _create_tools(self):
         """Create LangChain tools for the chatbot"""
