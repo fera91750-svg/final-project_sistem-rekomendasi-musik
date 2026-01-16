@@ -11,7 +11,7 @@ from llm_music_module import MusicLLMChatbot, create_chatbot
 
 class MusicChatbot(MusicLLMChatbot):
     def __init__(self, music_engine):
-        # Simpan engine agar bisa memanggil fungsi create_spotify_embed nanti
+        # Simpan engine untuk akses data dan fungsi embed
         self.engine = music_engine
         
         music_df = music_engine.df
@@ -21,38 +21,44 @@ class MusicChatbot(MusicLLMChatbot):
         # Initialize parent class
         super().__init__(music_df, model, label_encoder)
 
-    def get_chat_response(self, user_input):
+    def chat(self, user_input, thread_id=None):
         """
-        Method untuk mendapatkan teks jawaban DAN data lagu tanpa duplikat
+        Fungsi utama yang dipanggil oleh music.py
+        Mengembalikan DICTIONARY berisi teks dan list lagu tanpa duplikat
         """
-        # 1. Dapatkan respon teks dari LLM
+        # 1. Dapatkan respon teks dari LLM asli
         response_text = self.generate_response(user_input)
         
-        # 2. Deteksi mood dari input user
+        # 2. Deteksi Mood secara internal
         mood_detected = None
-        user_input_low = user_input.lower()
-        
-        if any(word in user_input_low for word in ['sedih', 'galau', 'sad', 'merana', 'nangis']):
-            mood_detected = 'Sad'
-        elif any(word in user_input_low for word in ['senang', 'happy', 'bahagia', 'ceria', 'gembira']):
-            mood_detected = 'Happy'
-        elif any(word in user_input_low for word in ['tenang', 'calm', 'santai', 'rileks', 'adem']):
-            mood_detected = 'Calm'
-        elif any(word in user_input_low for word in ['tense', 'tegang', 'stres', 'marah', 'semangat']):
-            mood_detected = 'Tense'
+        ui = user_input.lower()
+        if any(w in ui for w in ['sedih', 'galau', 'sad', 'kecewa']): mood_detected = 'Sad'
+        elif any(w in ui for w in ['senang', 'happy', 'bahagia', 'ceria']): mood_detected = 'Happy'
+        elif any(w in ui for w in ['santai', 'tenang', 'calm', 'rileks']): mood_detected = 'Calm'
+        elif any(w in ui for w in ['tense', 'tegang', 'stres', 'marah', 'semangat']): mood_detected = 'Tense'
 
-        recommendations = pd.DataFrame()
-        
+        list_lagu = []
         if mood_detected:
-            # Mengambil lebih banyak data dari engine untuk difilter duplikatnya
-            raw_recs = self.engine.get_recommendations_by_mood(mood_detected, n=20)
+            # Ambil 15 lagu untuk difilter duplikatnya
+            raw_recs = self.engine.get_recommendations_by_mood(mood_detected, n=15)
             
-            # --- PROSES PENGHILANGAN DUPLIKAT ---
-            # Kita hapus duplikat berdasarkan judul lagu (track_name) dan artis
             if not raw_recs.empty:
-                recommendations = raw_recs.drop_duplicates(subset=['track_name', 'artists'], keep='first')
+                # HAPUS DUPLIKAT berdasarkan judul dan artis
+                clean_recs = raw_recs.drop_duplicates(subset=['track_name', 'artists'], keep='first').head(3)
                 
-                # Setelah duplikat hilang, baru kita ambil 3 atau 5 teratas
-                recommendations = recommendations.head(3)
-            
-        return response_text, recommendations
+                # Format ke list dictionary agar bisa dibaca loop di music.py
+                for _, r in clean_recs.iterrows():
+                    list_lagu.append({
+                        'track_id': r['track_id'],
+                        'title': r['track_name'],   # Key ini harus pas dengan music.py
+                        'artist': r['artists'],
+                        'album': r['album_name'],
+                        'genre': r['track_genre'],
+                        'popularity': r['popularity']
+                    })
+
+        # 3. KEMBALIKAN DALAM FORMAT DICTIONARY (Penting!)
+        return {
+            "text": response_text,
+            "songs": list_lagu
+        }
