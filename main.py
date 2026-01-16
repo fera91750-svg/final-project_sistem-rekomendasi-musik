@@ -51,7 +51,7 @@ st.markdown("""
     }
     .stButton>button {
         background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
-        color: #FFFFFF;
+        color: #000000;
         font-weight: 700;
         padding: 0.75rem 2rem;
         border-radius: 500px;
@@ -80,7 +80,7 @@ if os.path.exists(logo_path):
     st.markdown(f"""
     <div style="display: flex; justify-content: center; margin-bottom: 1.5rem;">
         <img src="data:image/jpeg;base64,{img_base64}"
-             style="width: 280px; height: 280px; border-radius: 50%;
+             style="width: 200px; height: 200px; border-radius: 50%;
                     object-fit: cover; box-shadow: 0 10px 40px rgba(99, 102, 241, 0.3);">
     </div>
     """, unsafe_allow_html=True)
