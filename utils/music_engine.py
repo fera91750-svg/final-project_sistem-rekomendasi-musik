@@ -10,7 +10,7 @@ import os
 import streamlit as st
 
 
-class MusicRecommendationEnginee:
+class MusicRecommendationEngine:
     """
     Modular music recommendation engine
     Can work with or without trained models
