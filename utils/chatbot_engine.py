@@ -18,8 +18,8 @@ class MusicChatbot(MusicLLMChatbot):
         )
 
     def chat(self, user_text: str, thread_id=None):
-        # 1. Deteksi Mood secara cepat
-        mood_prompt = f"Tentukan mood musik (1 kata: Happy/Sad/Calm/Tense) untuk: {user_text}"
+        # 1. Langkah Pertama: Deteksi Mood
+        mood_prompt = f"Tentukan mood musik (1 kata: Happy/Sad/Calm/Tense) untuk kalimat ini: '{user_text}'"
         try:
             detected_mood = self.model.generate_content(mood_prompt).text.strip().capitalize()
             if detected_mood not in ["Happy", "Sad", "Calm", "Tense"]:
@@ -27,15 +27,16 @@ class MusicChatbot(MusicLLMChatbot):
         except:
             detected_mood = "Happy"
 
-        # 2. Ambil lagu dari database (Satu-satunya sumber lagu)
+        # 2. Langkah Kedua: Ambil Data Lagu dari Database (Satu-satunya Sumber)
+        # Kita ambil lagu sebelum LLM membuat kalimat
         songs_df = self.music_engine.get_recommendations_by_mood(detected_mood, n=5)
         
         songs_data = []
-        text_list_lagu = "" # Untuk ditempel ke chat
+        list_nama_lagu = []
         
         if not songs_df.empty:
-            for i, row in songs_df.iterrows():
-                # Simpan untuk player di UI
+            for _, row in songs_df.iterrows():
+                # Simpan untuk data embed spotify
                 spotify_html = self.music_engine.create_spotify_embed(row['track_id'])
                 songs_data.append({
                     "title": row["track_name"],
@@ -45,26 +46,32 @@ class MusicChatbot(MusicLLMChatbot):
                     "track_id": row["track_id"],
                     "embed_html": spotify_html
                 })
-                # Simpan untuk teks di chat
-                text_list_lagu += f"{i+1}. **{row['track_name']}** - {row['artists']}\n"
+                # Simpan nama lagu untuk "didikte" ke LLM
+                list_nama_lagu.append(f"{row['track_name']} oleh {row['artists']}")
 
-        # 3. Minta LLM buat kalimat pendukung SAJA (Tanpa List Lagu)
-        chat_prompt = f"""
-        Kamu teman curhat yang chill (aku-kamu). 
-        Beri respon singkat & asik untuk curhatan ini: "{user_text}"
-        Jangan tulis daftar lagu apapun dalam jawabanmu.
+        # 3. Langkah Ketiga: Suruh LLM membuat jawaban berdasarkan Lagu tadi
+        # Kita masukkan daftar lagu ke dalam prompt agar LLM membacanya
+        string_lagu = "\n".join(list_nama_lagu)
+        final_prompt = f"""
+        Kamu adalah teman curhat yang chill (aku-kamu).
+        User curhat: "{user_text}"
+        Mood: {detected_mood}
+        
+        TUGAS:
+        1. Berikan respon santai terhadap curhatan user.
+        2. Sebutkan bahwa kamu merekomendasikan lagu-lagu berikut:
+        {string_lagu}
+        
+        JANGAN menyebutkan lagu lain selain daftar di atas agar sinkron dengan pemutar musik!
         """
         
         try:
-            llm_response = self.model.generate_content(chat_prompt).text.strip()
+            llm_response = self.model.generate_content(final_prompt).text.strip()
         except:
-            llm_response = "Wah, aku ngerti perasaanmu. Nih, aku pilihin lagu yang pas buat kamu!"
-
-        # 4. GABUNGKAN SECARA PAKSA: Pesan LLM + List Lagu Database
-        final_text = f"{llm_response}\n\n**Rekomendasi lagu untuk mood {detected_mood}:**\n{text_list_lagu}"
+            llm_response = f"Wah, aku ngerti. Nih, aku pilihin beberapa lagu {detected_mood} buat nemenin kamu!"
 
         return {
-            "text": final_text,
+            "text": llm_response,
             "songs": songs_data,
             "mood": detected_mood
         }
