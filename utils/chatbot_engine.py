@@ -1,5 +1,5 @@
 """
-Music Chatbot Engine - Sinkronisasi Teks & Player
+Music Chatbot Engine - Integrasi Langsung Spotify Embed
 """
 
 import sys
@@ -14,48 +14,56 @@ from llm_music_module import MusicLLMChatbot, create_chatbot
 
 class MusicChatbot(MusicLLMChatbot):
     def __init__(self, music_engine):
+        # Simpan instance engine agar bisa panggil fungsi embed
         self.music_engine = music_engine
-        # Ambil komponen dari engine utama
-        super().__init__(music_engine.df, music_engine.model, music_engine.label_encoder)
+        
+        # Inisialisasi parent class dengan komponen dari engine
+        super().__init__(
+            self.music_engine.df, 
+            self.music_engine.model, 
+            self.music_engine.label_encoder
+        )
 
     def chat(self, user_text: str, thread_id=None):
-        # 1. Gunakan Prompt agar LLM hanya fokus memberi respon kata-kata yang santai
-        # Kita minta LLM JANGAN menuliskan daftar lagu sendiri agar tidak dobel/beda
+        # 1. Instruksi agar LLM santai dan tidak kaku
         forced_prompt = f"""
-        Jawab curhatan user sebagai teman yang sangat chill (pake aku-kamu).
-        HANYA berikan kalimat dukungan atau obrolan santai saja.
-        JANGAN menuliskan judul lagu atau daftar lagu apapun di dalam teks jawabanmu.
-        Biarkan sistem yang akan menampilkan lagunya secara otomatis.
+        Jawab curhatan user sebagai teman chill (pake aku-kamu). 
+        Jika user bahas seminar MSIB atau hal spesifik, kasih semangat personal.
+        JANGAN tulis daftar lagu di dalam teks ini.
         
         Curhatan: {user_text}
         """
 
-        # 2. Ambil respon dari Gemini (LLM)
+        # 2. Ambil respon dari LLM (Gemini)
         response = super().chat(forced_prompt, thread_id)
         llm_text = response.get('text', "")
         detected_mood = response.get('mood', 'Happy')
         
-        # 3. Ambil lagu dari database berdasarkan Mood yang dideteksi LLM
-        # Menggunakan .sample(n=5) agar lagu yang muncul selalu acak/random
+        # 3. Ambil lagu dari music_engine berdasarkan Mood
+        # n=5 lagu acak menggunakan fungsi rekomendasi engine
         songs_df = self.music_engine.get_recommendations_by_mood(detected_mood, n=5)
 
-        # 4. Susun data lagu dengan field LENGKAP agar UI tidak error merah (KeyError)
+        # 4. Susun data lagu + Panggil fungsi Embed dari music_engine
         songs_data = []
         if not songs_df.empty:
             for _, row in songs_df.iterrows():
+                # Memanggil fungsi embed dari music_engine Anda agar bisa didengar langsung
+                spotify_html = self.music_engine.create_spotify_embed(row['track_id'])
+                
                 songs_data.append({
                     "title": row["track_name"],
                     "artist": row["artists"],
-                    "album": row.get("album_name", "Original Album"), # Field ini wajib ada
-                    "genre": row.get("track_genre", "Music"),        # Field ini wajib ada
-                    "popularity": row.get("popularity", 0),          # Field ini wajib ada
-                    "track_id": row["track_id"]
+                    "album": row.get("album_name", "Unknown Album"),
+                    "genre": row.get("track_genre", "Music"),
+                    "popularity": row.get("popularity", 0),
+                    "track_id": row["track_id"],
+                    "embed_html": spotify_html  # Link embed spotify untuk UI
                 })
 
-        # 5. Return ke UI
+        # 5. Return ke UI (1_Music.py)
         return {
-            "text": llm_text,    # Teks santai dari LLM
-            "songs": songs_data, # Data lagu untuk Player & Detail
+            "text": llm_text,
+            "songs": songs_data,
             "mood": detected_mood
         }
 
