@@ -1,42 +1,207 @@
 """
-Music Chatbot Engine for Streamlit
-Wrapper that imports from data/music/llm_music_module.py
-
-This file acts as a bridge between the LLM module and Streamlit UI
+🎬🎵 MELORA - Music & Film Recommendation System
+Landing Page - User chooses between Music or Film recommendation
 """
+
 import streamlit as st
-import sys
+
+# Page configuration - COLLAPSED sidebar for clean look
+st.set_page_config(
+    page_title="MELORA - AI Recommendation System",
+    page_icon="🎬",
+    layout="centered",  # Centered for minimalist look
+    initial_sidebar_state="collapsed"  # NO SIDEBAR on landing page!
+)
+
+# Custom CSS - Clean professional design
+st.markdown("""
+<style>
+    /* Hide sidebar */
+    [data-testid="stSidebar"] {
+        display: none;
+    }
+
+    /* Full screen background - Professional slate */
+    .main {
+        background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+    }
+
+    /* Container */
+    .block-container {
+        padding-top: 3rem;
+        padding-bottom: 3rem;
+        max-width: 1000px;
+    }
+
+    /* Hero section */
+    .hero-container {
+        text-align: center;
+        padding: 2rem 0 3rem 0;
+    }
+
+    .hero-logo {
+        width: 250px;
+        height: 250px;
+        border-radius: 50%;
+        object-fit: cover;
+        margin: 0 auto 1.5rem auto;
+        display: block;
+        box-shadow: 0 10px 40px rgba(99, 102, 241, 0.3);
+    }
+
+    .hero-title {
+        font-size: 3.5rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #6366F1 0%, #EC4899 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 0.5rem;
+        letter-spacing: 0.1em;
+    }
+
+    .hero-subtitle {
+        font-size: 1.2rem;
+        color: #CBD5E1;
+        margin-bottom: 3rem;
+    }
+
+    /* Feature cards */
+    .feature-card {
+        background: linear-gradient(145deg, #1E293B, #0F172A);
+        border: 1px solid #334155;
+        border-radius: 16px;
+        padding: 2.5rem 2rem;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+
+    .feature-card:hover {
+        border-color: #6366F1;
+        box-shadow: 0 10px 30px rgba(99, 102, 241, 0.2);
+    }
+
+    /* Style buttons */
+    .stButton>button {
+        background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+        color: #FFFFFF;
+        font-weight: 700;
+        font-size: 0.95rem;
+        padding: 0.75rem 2rem;
+        border-radius: 500px;
+        border: none;
+        transition: all 0.2s ease;
+        width: 100%;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-top: 1rem;
+    }
+
+    .stButton>button:hover {
+        background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%);
+        transform: scale(1.05);
+        box-shadow: 0 5px 20px rgba(99, 102, 241, 0.4);
+    }
+
+    .feature-icon {
+        font-size: 4rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .feature-title {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: #F1F5F9;
+        margin-bottom: 1rem;
+    }
+
+    .feature-description {
+        font-size: 0.95rem;
+        color: #CBD5E1;
+        line-height: 1.6;
+    }
+
+    /* Footer */
+    .footer {
+        text-align: center;
+        color: #64748B;
+        font-size: 0.85rem;
+        padding: 3rem 0 1rem 0;
+        margin-top: 4rem;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Hero section with logo
+from PIL import Image
 import os
 
-# Add data/music folder to path
-data_music_folder = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'music')
-sys.path.insert(0, data_music_folder)
+# Display logo as circle
+logo_path = os.path.join(os.path.dirname(__file__), 'assets', 'logo.jpeg')
+if os.path.exists(logo_path):
+    import base64
 
-# Import from music module
-from llm_music_module import MusicLLMChatbot, create_chatbot
+    # Convert image to base64
+    with open(logo_path, "rb") as img_file:
+        img_base64 = base64.b64encode(img_file.read()).decode()
 
+    # Display as circular image with custom CSS
+    st.markdown(f"""
+    <div style="display: flex; justify-content: center; margin-bottom: 1.5rem;">
+        <img src="data:image/jpeg;base64,{img_base64}"
+             style="width: 300px; height: 300px; border-radius: 50%;
+                    object-fit: cover; box-shadow: 0 10px 40px rgba(99, 102, 241, 0.3);">
+    </div>
+    """, unsafe_allow_html=True)
 
-class MusicChatbot(MusicLLMChatbot):
-    """
-    Streamlit-specific wrapper for MusicLLMChatbot
-    Inherits all functionality from the music module
-    """
+# Subtitle only (logo already has MELORA text)
+st.markdown("""
+<div style="text-align: center;">
+    <div class="hero-subtitle" style="font-size: 1.5rem; margin-top: 1rem;">Music & Film Recommendation System</div>
+</div>
+""", unsafe_allow_html=True)
 
-    def __init__(self, music_engine):
-        """
-        Initialize chatbot with MusicRecommendationEngine
+# Two-column layout for cards
+col1, col2 = st.columns(2, gap="large")
 
-        Args:
-            music_engine: MusicRecommendationEngine instance from Streamlit
-        """
-        # Extract components from engine
-        music_df = music_engine.df
-        model = music_engine.model
-        label_encoder = music_engine.label_encoder
+with col1:
+    # Music Card
+    st.markdown("""
+    <div class="feature-card">
+        <div class="feature-icon">🎵</div>
+        <div class="feature-title">Music</div>
+        <div class="feature-description">
+            Discover songs based on your mood<br>
+            • Mood-based filtering<br>
+            • 114,000+ songs<br>
+            • Interactive analytics
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-        # Initialize parent class
-        super().__init__(music_df, model, label_encoder)
+    if st.button("Explore Music", key="music_btn", use_container_width=True):
+        st.switch_page("pages/1_Music.py")
 
+with col2:
+    # Film Card
+    st.markdown("""
+    <div class="feature-card">
+        <div class="feature-icon">🎬</div>
+        <div class="feature-title">Film</div>
+        <div class="feature-description">
+            Find your next favorite movie<br>
+            • Smart filters<br>
+            • 7,400+ films<br>
+            • Platform suggestions
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-# Export for easy import in Streamlit
-__all__ = ['MusicChatbot', 'create_chatbot']
+    if st.button("Explore Film", key="film_btn", use_container_width=True):
+        st.switch_page("pages/2_Film.py")
+
+# Footer
+st.markdown("""
+<div class="footer">
+    MELORA • Final Project Kelompok 4 • AI-Powered Recommendations
+</div>
+""", unsafe_allow_html=True)
