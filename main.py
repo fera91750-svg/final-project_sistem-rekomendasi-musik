@@ -88,7 +88,7 @@ if os.path.exists(logo_path):
 # Subtitle
 st.markdown("""
 <div style="text-align: center; margin-bottom: 2rem;">
-    <div style="font-size: 1.5rem; color: #CBD5E1; font-weight: 400;">AI-Powered Music Recommendation System</div>
+    <div style="font-size: 1.5rem; color: #000000; font-weight: 400;">AI-Powered Music Recommendation System</div>
 </div>
 """, unsafe_allow_html=True)
 
