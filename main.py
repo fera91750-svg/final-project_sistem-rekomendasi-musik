@@ -4,7 +4,7 @@ Wrapper that imports from data/music/llm_music_module.py
 
 This file acts as a bridge between the LLM module and Streamlit UI
 """
-
+import streamlit as st
 import sys
 import os
 
