@@ -1,100 +1,85 @@
-"""
-Music Chatbot Engine for Streamlit
-Hybrid: LLM for understanding + Engine for recommendation (Chill Version)
-"""
-
-import os
-import google.generativeai as genai
+import streamlit as st
 import pandas as pd
+from music_engine import MusicRecommendationEngine # Pastikan file music_engine.py ada di folder yang sama
 
-# =========================
-# API KEY CONFIG
-# =========================
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+# Inisialisasi Engine
+engine = MusicRecommendationEngine()
 
-if not GOOGLE_API_KEY:
-    raise RuntimeError(
-        "GOOGLE_API_KEY tidak ditemukan. "
-        "Set di Streamlit Cloud → Settings → Secrets"
-    )
+# --- FUNGSI DETEKSI MOOD DARI TEKS ---
+def deteksi_mood_user(teks):
+    teks = teks.lower()
+    
+    # Kamus kata kunci sederhana
+    if any(word in teks for word in ['sedih', 'galau', 'sad', 'nangis', 'kecewa', 'duka']):
+        return 'Sad'
+    elif any(word in teks for word in ['senang', 'happy', 'bahagia', 'gembira', 'ceria', 'mantap']):
+        return 'Happy'
+    elif any(word in teks for word in ['tenang', 'santai', 'calm', 'rileks', 'adem', 'istirahat']):
+        return 'Calm'
+    elif any(word in teks for word in ['tense', 'tegang', 'marah', 'stres', 'stress', 'energi', 'semangat']):
+        return 'Tense'
+    
+    return None
 
-genai.configure(api_key=GOOGLE_API_KEY)
+# --- KONFIGURASI HALAMAN ---
+st.set_page_config(page_title="VibeTune Chatbot", page_icon="🎵")
+st.title("🎵 VibeTune: Music Mood Chatbot")
+st.markdown("Halo! Ceritakan perasaanmu sekarang, dan aku akan carikan lagu yang cocok.")
 
+# Inisialisasi Chat History
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-class MusicChatbot:
-    def __init__(self, music_engine):
-        self.engine = music_engine
-        # Menggunakan model Gemini 1.5 Flash yang responsif
-        self.model = genai.GenerativeModel("gemini-1.5-flash")
+# Menampilkan chat lama dari history
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+        if "songs" in message:
+            for track_id in message["songs"]:
+                st.components.v1.html(engine.create_spotify_embed(track_id), height=80)
 
-    # =========================
-    # CHAT MAIN FUNCTION
-    # =========================
-    def chat(self, user_text: str, thread_id=None):
-        # 1. Prompt dengan gaya bahasa santai/chill
-        prompt = f"""
-        User curhat: "{user_text}"
-        
-        Tugas Anda:
-        1. Jadilah teman curhat yang asik, chill, dan friendly. Gunakan Bahasa Indonesia yang santai (nggak kaku).
-        2. Berikan respon empati yang tulus. Kalau user bilang mau seminar MSIB, ujian, atau lagi capek, kasih semangat yang hangat kayak temen deket.
-        3. Gunakan sedikit emoji biar suasananya makin seru.
-        4. Tentukan satu kategori mood musik yang paling pas (Happy, Sad, Calm, atau Tense).
-        
-        Format jawaban wajib:
-        Kategori: [Nama Mood]
-        Respon: [Isi kalimat dukungan santai kamu]
-        """
+# --- LOGIKA INPUT USER ---
+if prompt := st.chat_input("Apa yang kamu rasakan?"):
+    # 1. Tampilkan pesan user
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
 
-        try:
-            # Meminta Gemini menganalisis perasaan user
-            raw_response = self.model.generate_content(prompt).text
-            lines = raw_response.split('\n')
-            detected_mood = "Happy" # Default jika gagal
-            support_msg = ""
+    # 2. Deteksi mood berdasarkan input user yang baru saja diketik
+    mood_terdeteksi = deteksi_mood_user(prompt)
+
+    # 3. Buat respon Bot
+    with st.chat_message("assistant"):
+        if mood_terdeteksi:
+            # Ambil rekomendasi dari engine berdasarkan mood yang baru terdeteksi
+            recs = engine.get_recommendations_by_mood(mood_terdeteksi, n=5)
             
-            # Parsing hasil dari Gemini
-            for line in lines:
-                if "Kategori:" in line:
-                    for m in ["Happy", "Sad", "Calm", "Tense"]:
-                        if m.lower() in line.lower(): 
-                            detected_mood = m
-                if "Respon:" in line:
-                    support_msg = line.replace("Respon:", "").strip()
+            # Template respon dinamis
+            template_respon = {
+                'Happy': "Wah, senang mendengarnya! ✨ Tetap semangat ya, ini lagu biar harimu makin ceria:",
+                'Sad': "Aku mengerti perasaamu... 🌧️ Tak apa merasa sedih sesekali. Ini beberapa lagu untuk menemanimu:",
+                'Calm': "Waktunya bersantai... 🍃 Tarik napas dalam-dalam, dan nikmati ketenangan ini:",
+                'Tense': "Energi kamu lagi tinggi ya! 🔥 Ini lagu yang cocok buat mood kamu yang lagi tegang/semangat:"
+            }
             
-            # Jika format parsing gagal, gunakan teks mentah
-            if not support_msg: 
-                support_msg = raw_response.strip()
-                
-        except Exception:
-            detected_mood = "Happy"
-            support_msg = "Semangat terus ya! Aku yakin kamu pasti bisa ngelewatin hari ini dengan keren banget. ✨"
-
-        # 2. Ambil lagu dari music_engine berdasarkan mood
-        songs_df = self.engine.get_recommendations_by_mood(detected_mood, n=5)
-
-        # 3. Susun Pesan Teks dan List Data Lagu Lengkap untuk UI
-        full_text = f"{support_msg}\n\n**Nih, ada beberapa lagu yang cocok buat nemenin mood {detected_mood} kamu:**\n"
-        songs_data = []
-        
-        if not songs_df.empty:
-            for i, row in songs_df.iterrows():
-                # List teks simpel di balon chat
-                full_text += f"{i+1}. **{row['track_name']}** – {row['artists']}\n"
-                
-                # Data lengkap agar tidak terjadi KeyError di pages/1_Music.py
-                songs_data.append({
-                    "title": row["track_name"],
-                    "artist": row["artists"],
-                    "album": row.get("album_name", "No Album"),
-                    "genre": row.get("track_genre", "Music"),
-                    "popularity": row.get("popularity", 0),
-                    "track_id": row["track_id"]
-                })
+            response_text = template_respon[mood_terdeteksi]
+            st.markdown(response_text)
+            
+            # Tampilkan Iframe Spotify dan simpan list ID lagu untuk history
+            list_track_id = []
+            for _, row in recs.iterrows():
+                st.components.v1.html(engine.create_spotify_embed(row['track_id']), height=80)
+                list_track_id.append(row['track_id'])
+            
+            # Simpan ke history
+            st.session_state.messages.append({
+                "role": "assistant", 
+                "content": response_text,
+                "songs": list_track_id
+            })
+            
         else:
-            full_text += "Duh, aku belum nemu lagu yang pas nih buat sekarang. Tapi tetep semangat ya! 🙌"
-
-        return {
-            "text": full_text, 
-            "songs": songs_data
-        }
+            # Jika mood tidak terdeteksi
+            error_msg = "Aku belum yakin apa moodmu. Bisa coba ceritakan lebih spesifik seperti 'aku lagi sedih' atau 'aku butuh yang tenang'?"
+            st.markdown(error_msg)
+            st.session_state.messages.append({"role": "assistant", "content": error_msg})
