@@ -470,10 +470,58 @@ elif selected_tab == "🎯 Predict Mood":
         - **Calm**: Valence tinggi + Energy rendah
         - **Tense**: Valence rendah + Energy tinggi
         """)
-
 elif selected_tab == "💬 Chat Assistant":
     st.markdown("## 💬 Music Chat Assistant")
 
+    if 'chat_history' not in st.session_state:
+        st.session_state.chat_history = []
+
+    # 1. Tampilkan Chat History
+    chat_container = st.container(height=500, border=True)
+    with chat_container:
+        for message in st.session_state.chat_history:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
+                
+                # Render Card Lagu jika ada data songs
+                if "songs" in message and message["songs"]:
+                    for song in message["songs"]:
+                        # Cek apakah track_id ada di dalam data song
+                        tid = song.get('track_id')
+                        if tid:
+                            with st.container(border=True):
+                                col_info, col_player = st.columns([1, 1])
+                                with col_info:
+                                    st.markdown(f"**{song.get('title', 'Unknown')}**")
+                                    st.caption(f"{song.get('artist', 'Unknown')}")
+                                with col_player:
+                                    # Panggil engine untuk buat embed
+                                    embed_code = engine.create_spotify_embed(tid)
+                                    st.components.v1.html(embed_code, height=80)
+
+    # 2. Input Chat
+    if prompt := st.chat_input("Ceritakan perasaanmu..."):
+        # Simpan pesan user ke history
+        st.session_state.chat_history.append({"role": "user", "content": prompt})
+        
+        with st.spinner("🤖 Berpikir..."):
+            # Panggil chatbot_engine (yang memanggil llm_music_module)
+            response = chatbot.chat(prompt)
+            
+            # Ambil teks dan lagu dari response dictionary
+            bot_text = response.get("text", "Maaf, saya tidak mengerti.")
+            bot_songs = response.get("songs", [])
+            
+            # Simpan respon bot ke history
+            st.session_state.chat_history.append({
+                "role": "assistant",
+                "content": bot_text,
+                "songs": bot_songs
+            })
+            
+            # Paksa refresh agar chat muncul
+            st.rerun()
+            
     # Check if API key is available
     if not os.getenv("GOOGLE_API_KEY"):
         st.error("⚠️ **GOOGLE_API_KEY not found!**")
