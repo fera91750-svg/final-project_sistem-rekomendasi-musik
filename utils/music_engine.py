@@ -9,6 +9,7 @@ import joblib
 import os
 import streamlit as st
 
+
 class MusicRecommendationEngine:
     """
     Modular music recommendation engine
@@ -49,7 +50,7 @@ class MusicRecommendationEngine:
                 _self.model = None
                 _self.label_encoder = None
 
-            # Add mood column
+            # Add mood column using rule-based or model-based classification
             _self._add_mood_column()
 
             # Get unique genres
@@ -62,7 +63,10 @@ class MusicRecommendationEngine:
             raise
 
     def _classify_mood_rule_based(self, row):
-        """Rule-based mood classification based on valence and energy"""
+        """
+        Rule-based mood classification
+        Based on valence and energy values
+        """
         valence = row['valence']
         energy = row['energy']
 
@@ -76,114 +80,191 @@ class MusicRecommendationEngine:
             return 'Tense'
 
     def _add_mood_column(self):
-        """Add mood column to dataframe using model or rules"""
+        """Add mood column to dataframe"""
         if self.model is not None and self.label_encoder is not None:
+            # Use trained model
             try:
                 features = ['danceability', 'energy', 'valence', 'tempo',
                            'acousticness', 'instrumentalness', 'loudness', 'speechiness']
                 X = self.df[features]
                 mood_encoded = self.model.predict(X)
                 self.df['mood'] = self.label_encoder.inverse_transform(mood_encoded)
+                print("Using model-based mood classification")
             except Exception as e:
+                print(f"Model prediction failed, falling back to rule-based: {e}")
                 self.df['mood'] = self.df.apply(self._classify_mood_rule_based, axis=1)
         else:
+            # Use rule-based classification
             self.df['mood'] = self.df.apply(self._classify_mood_rule_based, axis=1)
-
-    # --- BAGIAN REKOMENDASI DENGAN RANDOMISASI AGAR TIDAK BERULANG ---
+            print("Using rule-based mood classification")
 
     def get_recommendations_by_mood(self, mood, n=10):
+        """
+        Get song recommendations by mood
+
+        Args:
+            mood (str): One of ['Happy', 'Sad', 'Calm', 'Tense']
+            n (int): Number of recommendations
+
+        Returns:
+            DataFrame: Recommended songs
+        """
         if mood not in self.moods:
             raise ValueError(f"Mood must be one of {self.moods}")
 
+        # Filter by mood
         filtered = self.df[self.df['mood'] == mood]
-        if filtered.empty:
-            return pd.DataFrame()
 
-        # Ambil pool 100 terpopuler agar kualitas terjaga
-        pool_size = min(len(filtered), 100)
-        top_pool = filtered.nlargest(pool_size, 'popularity')
-        
-        # Ambil n secara acak dan RESET INDEX agar chatbot bisa menampilkan data
-        recommendations = top_pool.sample(n=min(len(top_pool), n)).reset_index(drop=True)
+        # Sort by popularity and get top N
+        recommendations = filtered.nlargest(n, 'popularity')
 
         return recommendations[['track_name', 'artists', 'album_name',
                                'track_id', 'popularity', 'valence',
                                'energy', 'track_genre', 'mood']]
 
     def get_recommendations_by_genre(self, genre, n=10):
+        """
+        Get song recommendations by genre
+
+        Args:
+            genre (str): Music genre
+            n (int): Number of recommendations
+
+        Returns:
+            DataFrame: Recommended songs
+        """
+        # Filter by genre
         filtered = self.df[self.df['track_genre'] == genre]
+
         if filtered.empty:
             return pd.DataFrame()
 
-        pool_size = min(len(filtered), 50)
-        top_pool = filtered.nlargest(pool_size, 'popularity')
-        
-        recommendations = top_pool.sample(n=min(len(top_pool), n)).reset_index(drop=True)
+        # Sort by popularity
+        recommendations = filtered.nlargest(n, 'popularity')
 
         return recommendations[['track_name', 'artists', 'album_name',
                                'track_id', 'popularity', 'valence',
                                'energy', 'track_genre', 'mood']]
 
     def get_recommendations_by_mood_and_genre(self, mood, genre, n=10):
+        """
+        Get song recommendations by both mood and genre
+
+        Args:
+            mood (str): Mood category
+            genre (str): Music genre
+            n (int): Number of recommendations
+
+        Returns:
+            DataFrame: Recommended songs
+        """
+        # Filter by both mood and genre
         filtered = self.df[
-            (self.df['mood'] == mood) & 
+            (self.df['mood'] == mood) &
             (self.df['track_genre'] == genre)
         ]
+
         if filtered.empty:
             return pd.DataFrame()
 
-        # Acak langsung dari hasil filter dan reset index
-        recommendations = filtered.sample(n=min(len(filtered), n)).reset_index(drop=True)
+        # Sort by popularity
+        recommendations = filtered.nlargest(n, 'popularity')
 
         return recommendations[['track_name', 'artists', 'album_name',
                                'track_id', 'popularity', 'valence',
                                'energy', 'track_genre', 'mood']]
 
-    # --- FUNGSI STATISTIK DAN UTILITY ---
-
     def get_mood_distribution(self):
+        """
+        Get mood distribution for visualization
+
+        Returns:
+            dict: Mood counts
+        """
         return self.df['mood'].value_counts().to_dict()
 
     def get_genre_distribution(self, mood=None):
-        filtered = self.df[self.df['mood'] == mood] if mood else self.df
+        """
+        Get genre distribution, optionally filtered by mood
+
+        Args:
+            mood (str, optional): Filter by mood
+
+        Returns:
+            dict: Genre counts
+        """
+        if mood:
+            filtered = self.df[self.df['mood'] == mood]
+        else:
+            filtered = self.df
+
         return filtered['track_genre'].value_counts().head(20).to_dict()
 
     def get_mood_stats(self):
-        return self.df.groupby('mood').agg({
-            'valence': 'mean', 'energy': 'mean', 'danceability': 'mean',
-            'acousticness': 'mean', 'popularity': 'mean'
+        """
+        Get statistical summary of moods
+
+        Returns:
+            DataFrame: Mood statistics
+        """
+        stats = self.df.groupby('mood').agg({
+            'valence': 'mean',
+            'energy': 'mean',
+            'danceability': 'mean',
+            'acousticness': 'mean',
+            'popularity': 'mean'
         }).round(3)
 
-    # --- FUNGSI UNTUK TAMPILAN SPOTIFY (AUDIO) ---
+        return stats
 
     @staticmethod
-    def create_spotify_embed(track_id, width="100%", height=80):
-        """Menghasilkan iframe Spotify Player untuk Chatbot"""
-        if not track_id or pd.isna(track_id):
-            return ""
-        # URL diperbaiki agar mengarah ke embed resmi
+    def create_spotify_embed(track_id, width=300, height=380):
+        """
+        Create Spotify embed HTML
+
+        Args:
+            track_id (str): Spotify track ID
+            width (int): Player width
+            height (int): Player height
+
+        Returns:
+            str: HTML iframe code
+        """
         return f'''
         <iframe src="https://open.spotify.com/embed/track/{track_id}"
                 width="{width}"
                 height="{height}"
                 frameborder="0"
                 allowtransparency="true"
-                allow="encrypted-media; clipboard-write; picture-in-picture">
+                allow="encrypted-media">
         </iframe>
         '''
 
     @staticmethod
     def create_spotify_search_link(track_name, artist):
+        """
+        Create Spotify search link
+
+        Args:
+            track_name (str): Song title
+            artist (str): Artist name
+
+        Returns:
+            str: Spotify search URL
+        """
         query = f"{track_name} {artist}".replace(" ", "+")
         return f"https://open.spotify.com/search/{query}"
 
     def get_available_genres(self):
+        """Get list of available genres"""
         return self.genres
 
     def get_available_moods(self):
+        """Get list of available moods"""
         return self.moods
 
     def get_dataset_info(self):
+        """Get dataset information"""
         return {
             'total_songs': len(self.df),
             'total_genres': len(self.genres),
