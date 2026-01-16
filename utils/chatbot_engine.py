@@ -1,58 +1,77 @@
-"""
-Music Chatbot Engine for Streamlit
-Wrapper that imports from data/music/llm_music_module.py
-
-This file acts as a bridge between the LLM module and Streamlit UI
-"""
-
 import sys
 import os
-import streamlit as st
 
-# Add data/music folder to path
+# Menghubungkan ke folder data/music tempat llm_music_module berada
 data_music_folder = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'music')
 sys.path.insert(0, data_music_folder)
 
-from llm_music_module import MusicLLMChatbot, create_chatbot
+from llm_music_module import MusicLLMChatbot
 
 class MusicChatbot(MusicLLMChatbot):
     def __init__(self, music_engine):
-        # Simpan engine agar bisa memanggil fungsi create_spotify_embed nanti
-        self.engine = music_engine
-        
-        music_df = music_engine.df
-        model = music_engine.model
-        label_encoder = music_engine.label_encoder
+        self.music_engine = music_engine
+        # Tetap menggunakan inisialisasi asli dari llm_music_module Anda
+        super().__init__(
+            self.music_engine.df, 
+            self.music_engine.model, 
+            self.music_engine.label_encoder
+        )
 
-        # Initialize parent class
-        super().__init__(music_df, model, label_encoder)
+    def chat(self, user_text: str, thread_id=None):
+        # 1. Panggil fungsi chat ASLI dari llm_music_module
+        response = super().chat(user_text, thread_id)
+        
+        llm_text = response.get('text', "")
+        llm_songs = response.get('songs', [])
+        detected_mood = response.get('mood', 'Happy')
 
-    def get_chat_response(self, user_input):
-        """
-        Custom method untuk mendapatkan teks jawaban DAN data lagu
-        """
-        # 1. Dapatkan respon teks dari logika LLM/Module asli
-        response_text = self.generate_response(user_input)
-        
-        # 2. Deteksi mood dari input user (menggunakan logika engine)
-        # Anda bisa menyesuaikan ini dengan fungsi deteksi mood yang sudah kita buat
-        from engine.music_engine import MusicRecommendationEngine # Pastikan path benar
-        
-        # Sederhananya, kita cari rekomendasi lagu jika user minta
-        recommendations = pd.DataFrame()
-        mood_detected = None
-        
-        # Logika deteksi sederhana (bisa dikembangkan)
-        if any(word in user_input.lower() for word in ['sedih', 'galau', 'sad']):
-            mood_detected = 'Sad'
-        elif any(word in user_input.lower() for word in ['senang', 'happy', 'bahagia']):
-            mood_detected = 'Happy'
-        elif any(word in user_input.lower() for word in ['tenang', 'calm', 'santai']):
-            mood_detected = 'Calm'
-        elif any(word in user_input.lower() for word in ['tense', 'tegang', 'stres']):
-            mood_detected = 'Tense'
+        # 2. Logika Anti-Duplikat dan Pengayaan Data
+        enriched_songs = []
+        seen_titles = set() # Melacak agar tidak ada judul yang sama muncul dua kali
 
-        if mood_detected:
-            recommendations = self.engine.get_recommendations_by_mood(mood_detected, n=3)
+        for s in llm_songs:
+            # Ambil judul lagu dari LLM
+            search_title = s.get('title') or s.get('track_name', "")
+            if not search_title:
+                continue
+                
+            clean_title = search_title.lower().strip()
+
+            # Lewati jika lagu ini sudah pernah dimasukkan (Anti-Duplikat)
+            if clean_title in seen_titles:
+                continue
+
+            # 3. Cari data lengkap di database asli (df)
+            # Menggunakan sorting popularity agar jika ada duplikat di DB, diambil yang terbaik
+            match = self.music_engine.df[
+                (self.music_engine.df['track_name'].str.lower() == clean_title)
+            ].sort_values(by='popularity', ascending=False).head(1)
             
-        return response_text, recommendations
+            if not match.empty:
+                row = match.iloc[0]
+                enriched_songs.append({
+                    "title": str(row["track_name"]),
+                    "artist": str(row["artists"]),
+                    "album": str(row.get("album_name", "Original Album")),
+                    "genre": str(row.get("track_genre", "Music")),
+                    "popularity": int(row.get("popularity", 0)),
+                    "track_id": str(row["track_id"]) # WAJIB untuk Spotify Player
+                })
+                seen_titles.add(clean_title) # Tandai judul ini sudah diambil
+            else:
+                # Jika tidak ketemu di DF utama, berikan data fallback agar UI tidak error
+                enriched_songs.append({
+                    "title": s.get("title", "Unknown"),
+                    "artist": s.get("artist", "Various Artists"),
+                    "album": "Single",
+                    "genre": "Music",
+                    "popularity": s.get("popularity", 50),
+                    "track_id": s.get("track_id", "")
+                })
+
+        # 4. Kirim kembali ke UI 1_Music.py dengan data yang sudah bersih
+        return {
+            "text": llm_text,
+            "songs": enriched_songs,
+            "mood": detected_mood
+        }
