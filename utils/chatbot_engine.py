@@ -1,51 +1,42 @@
+"""
+Music Chatbot Engine for Streamlit
+Wrapper that imports from data/music/llm_music_module.py
+
+This file acts as a bridge between the LLM module and Streamlit UI
+"""
+
 import sys
 import os
 
+# Add data/music folder to path
 data_music_folder = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'music')
 sys.path.insert(0, data_music_folder)
 
-from llm_music_module import MusicLLMChatbot
+# Import from music module
+from llm_music_module import MusicLLMChatbot, create_chatbot
+
 
 class MusicChatbot(MusicLLMChatbot):
+    """
+    Streamlit-specific wrapper for MusicLLMChatbot
+    Inherits all functionality from the music module
+    """
+
     def __init__(self, music_engine):
-        self.music_engine = music_engine
-        super().__init__(
-            self.music_engine.df, 
-            self.music_engine.model, 
-            self.music_engine.label_encoder
-        )
+        """
+        Initialize chatbot with MusicRecommendationEngine
 
-    def chat(self, user_text: str, thread_id=None):
-        # Jalankan logika asli LLM Anda
-        response = super().chat(user_text, thread_id)
-        
-        llm_text = response.get('text', "")
-        llm_songs = response.get('songs', [])
-        detected_mood = response.get('mood', 'Happy')
+        Args:
+            music_engine: MusicRecommendationEngine instance from Streamlit
+        """
+        # Extract components from engine
+        music_df = music_engine.df
+        model = music_engine.model
+        label_encoder = music_engine.label_encoder
 
-        enriched_songs = []
-        for s in llm_songs:
-            # Ambil judul lagu dari LLM
-            search_name = s.get('title') or s.get('track_name', "")
-            
-            # Cari di DF asli (Gunakan contains agar lebih fleksibel)
-            match = self.music_engine.df[
-                self.music_engine.df['track_name'].str.contains(search_name, case=False, na=False)
-            ].head(1)
-            
-            if not match.empty:
-                row = match.iloc[0]
-                enriched_songs.append({
-                    "title": str(row["track_name"]),
-                    "artist": str(row["artists"]),
-                    "album": str(row.get("album_name", "Album")),
-                    "genre": str(row.get("track_genre", "Music")),
-                    "popularity": int(row.get("popularity", 0)),
-                    "track_id": str(row["track_id"])
-                })
-        
-        return {
-            "text": llm_text,
-            "songs": enriched_songs,
-            "mood": detected_mood
-        }
+        # Initialize parent class
+        super().__init__(music_df, model, label_encoder)
+
+
+# Export for easy import in Streamlit
+__all__ = ['MusicChatbot', 'create_chatbot']
