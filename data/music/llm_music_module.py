@@ -184,7 +184,7 @@ SELALU tampilkan hasil lengkap dari tool.
 
         @tool
         def recommend_music(mood: str) -> Dict[str, Any]:
-            """Rekomendasi 5 lagu berdasarkan mood tertentu tanpa adanya duplikat lagu."""
+            """Rekomendasi 5 lagu berdasarkan mood tertentu."""
             try:
                 mood = mood.strip().capitalize()
 
@@ -192,22 +192,16 @@ SELALU tampilkan hasil lengkap dari tool.
                 valid_moods = ['Happy', 'Sad', 'Calm', 'Tense']
                 if mood not in valid_moods:
                     return {"error": f"Mood harus salah satu dari: {', '.join(valid_moods)}"}
-               
+
                 # Get recommendations from dataset
-                 mood_songs = self.music_df[self.music_df['mood'] == mood].copy()
+                mood_songs = self.music_df[self.music_df['mood'] == mood].copy()
 
                 if mood_songs.empty:
                     return {"error": f"Tidak ada lagu dengan mood {mood}."}
-                
-                mood_songs = mood_songs.sort_values(by='popularity', ascending=False)
 
-                # Hapus duplikat berdasarkan 'track_name' (judul lagu)
-                # keep='first' memastikan kita mengambil baris yang paling populer
-                mood_songs = mood_songs.drop_duplicates(subset=['track_name'], keep='first')
+                # Sort by popularity and get top 5
+                recommendations = mood_songs.nlargest(5, 'popularity')
 
-                # 3. Ambil 5 teratas setelah dipastikan unik
-                recommendations = mood_songs.head(5)
-              
                 # Format results
                 songs = []
                 for _, row in recommendations.iterrows():
