@@ -119,21 +119,37 @@ class MusicRecommendationEngine:
                                'energy', 'track_genre', 'mood']]
 
     def get_recommendations_by_genre(self, genre, n):
-        """Get song recommendations by genre with variation"""
+        """Get song recommendations by genre without duplicates"""
+
         filtered = self.df[self.df['track_genre'] == genre]
+
         if filtered.empty:
             return pd.DataFrame()
 
-        # Ambil pool 50 lagu terpopuler, lalu acak n lagu
-        pool_size = min(len(filtered), n)
-        top_pool = filtered.nlargest(pool_size, 'popularity')
-        
-        sample_size = min(len(top_pool), n)
-        recommendations = top_pool.sample(n=sample_size).sort_values(by='popularity', ascending=False)
+        # 🔥 HAPUS DUPLIKAT LAGU (BERDASARKAN TRACK_ID)
+        filtered = (
+            filtered
+            .sort_values('popularity', ascending=False)
+            .drop_duplicates(subset='track_id')
+        )
+
+        # Ambil pool lagu teratas
+        pool_size = min(len(filtered), max(n * 2, n))
+        top_pool = filtered.head(pool_size)
+
+        # Random tapi tetap unik
+        if len(top_pool) > n:
+            recommendations = (
+                top_pool
+                .sample(n=n, random_state=None)
+                .sort_values(by='popularity', ascending=False)
+            )
+        else:
+            recommendations = top_pool
 
         return recommendations[['track_name', 'artists', 'album_name',
-                               'track_id', 'popularity', 'valence',
-                               'energy', 'track_genre', 'mood']]
+                             'track_id', 'popularity', 'valence',
+                             'energy', 'track_genre', 'mood']]
 
     def get_recommendations_by_mood_and_genre(self, mood, genre, n):
         """Get song recommendations by both mood and genre with variation"""
