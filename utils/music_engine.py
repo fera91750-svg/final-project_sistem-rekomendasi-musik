@@ -108,7 +108,7 @@ class MusicRecommendationEngine:
             return pd.DataFrame()
 
         # Ambil pool 100 lagu terpopuler, lalu acak n lagu
-        pool_size = min(len(filtered), 100)
+        pool_size = min(len(filtered), n)
         top_pool = filtered.nlargest(pool_size, 'popularity')
         
         sample_size = min(len(top_pool), n)
@@ -118,14 +118,14 @@ class MusicRecommendationEngine:
                                'track_id', 'popularity', 'valence',
                                'energy', 'track_genre', 'mood']]
 
-    def get_recommendations_by_genre(self, genre, n=10):
+    def get_recommendations_by_genre(self, genre, n):
         """Get song recommendations by genre with variation"""
         filtered = self.df[self.df['track_genre'] == genre]
         if filtered.empty:
             return pd.DataFrame()
 
         # Ambil pool 50 lagu terpopuler, lalu acak n lagu
-        pool_size = min(len(filtered), 50)
+        pool_size = min(len(filtered), n)
         top_pool = filtered.nlargest(pool_size, 'popularity')
         
         sample_size = min(len(top_pool), n)
@@ -135,7 +135,7 @@ class MusicRecommendationEngine:
                                'track_id', 'popularity', 'valence',
                                'energy', 'track_genre', 'mood']]
 
-    def get_recommendations_by_mood_and_genre(self, mood, genre, n=10):
+    def get_recommendations_by_mood_and_genre(self, mood, genre, n):
         """Get song recommendations by both mood and genre with variation"""
         filtered = self.df[
             (self.df['mood'] == mood) & 
