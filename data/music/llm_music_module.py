@@ -194,19 +194,19 @@ SELALU tampilkan hasil lengkap dari tool.
                     return {"error": f"Mood harus salah satu dari: {', '.join(valid_moods)}"}
                
                 # Get recommendations from dataset
-                mood_songs = self.music_df[self.music_df['mood'] == mood].copy()
+                 mood_songs = self.music_df[self.music_df['mood'] == mood].copy()
 
                 if mood_songs.empty:
                     return {"error": f"Tidak ada lagu dengan mood {mood}."}
                 
-               mood_songs = mood_songs.sort_values(by='popularity', ascending=False)
+                mood_songs = mood_songs.sort_values(by='popularity', ascending=False)
 
-               # Hapus duplikat berdasarkan 'track_name' (judul lagu)
-               # keep='first' memastikan kita mengambil baris yang paling populer
-               mood_songs = mood_songs.drop_duplicates(subset=['track_name'], keep='first')
+                # Hapus duplikat berdasarkan 'track_name' (judul lagu)
+                # keep='first' memastikan kita mengambil baris yang paling populer
+                mood_songs = mood_songs.drop_duplicates(subset=['track_name'], keep='first')
 
-               # 3. Ambil 5 teratas setelah dipastikan unik
-               recommendations = mood_songs.head(5)
+                # 3. Ambil 5 teratas setelah dipastikan unik
+                recommendations = mood_songs.head(5)
               
                 # Format results
                 songs = []
