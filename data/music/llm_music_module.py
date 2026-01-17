@@ -183,38 +183,40 @@ SELALU tampilkan hasil lengkap dari tool.
                 return {"error": f"Error predicting mood: {str(e)}"}
 
         @tool
-        def recommend_music(mood: str) -> Dict[str, Any]:
-            """Rekomendasi 5 lagu berdasarkan mood tertentu."""
-            try:
-                mood = mood.strip().capitalize()
+        @tool
+    def recommend_music(mood: str) -> Dict[str, Any]:
+        """Rekomendasi 5 lagu berdasarkan mood tertentu tanpa duplikat judul."""
+        try:
+            mood = mood.strip().capitalize()
+            valid_moods = ['Happy', 'Sad', 'Calm', 'Tense']
+            if mood not in valid_moods:
+                return {"error": f"Mood harus salah satu dari: {', '.join(valid_moods)}"}
+    
+              mood_songs = self.music_df[self.music_df['mood'] == mood].copy()
+            if mood_songs.empty:
+                return {"error": f"Tidak ada lagu dengan mood {mood}."}
 
-                # Validate mood
-                valid_moods = ['Happy', 'Sad', 'Calm', 'Tense']
-                if mood not in valid_moods:
-                    return {"error": f"Mood harus salah satu dari: {', '.join(valid_moods)}"}
+                mood_songs = mood_songs.sort_values(by='popularity', ascending=False)
+        
+               mood_songs = mood_songs.drop_duplicates(subset=['track_name'], keep='first')
 
-                # Get recommendations from dataset
-                mood_songs = self.music_df[self.music_df['mood'] == mood].copy()
+               recommendations = mood_songs.head(5)
 
-                if mood_songs.empty:
-                    return {"error": f"Tidak ada lagu dengan mood {mood}."}
+        # Format hasil untuk dikirim ke LLM dan UI
+        songs = []
+        for _, row in recommendations.iterrows():
+            songs.append({
+                "title": row['track_name'],
+                "artist": row['artists'],
+                "album": row.get('album_name', 'Unknown Album'),
+                "genre": row['track_genre'], # Genre tetap ditampilkan (dari entri paling populer)
+                "popularity": int(row['popularity']),
+                "track_id": row['track_id']
+            })
 
-                # Sort by popularity and get top 5
-                recommendations = mood_songs.nlargest(5, 'popularity')
-
-                # Format results
-                songs = []
-                for _, row in recommendations.iterrows():
-                    songs.append({
-                        "title": row['track_name'],
-                        "artist": row['artists'],
-                        "album": row.get('album_name', 'Unknown Album'),
-                        "genre": row['track_genre'],
-                        "popularity": int(row['popularity']),
-                        "track_id": row['track_id']
-                    })
-
-                return {"recommendations": songs}
+        return {"recommendations": songs}
+    except Exception as e:
+        return {"error": f"Error getting recommendations: {str(e)}"}
             except Exception as e:
                 return {"error": f"Error getting recommendations: {str(e)}"}
 
