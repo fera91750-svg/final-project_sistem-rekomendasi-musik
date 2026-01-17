@@ -39,53 +39,63 @@ class MusicChatbot(MusicLLMChatbot):
             music_engine.label_encoder
         )
 
-    def chat(self, user_text, thread_id=None):
+  def chat(self, user_message: str, thread_id: str = "default") -> Dict[str, Any]:
         """
-        Overriding fungsi chat untuk memfilter output agar tidak terjadi duplikasi
-        dan mencegah jawaban lagu sebelumnya muncul kembali.
+        Fungsi chat di chatbot_engine.py yang menggunakan track_id 
+        untuk memastikan tidak ada duplikasi lagu.
         """
-        # A. Dapatkan respon dasar dari model LLM
-        response = super().chat(user_text, thread_id)
-        
-        # Ambil list lagu mentah dan mood yang dideteksi
-        raw_songs = response.get('songs', [])
-        mood = response.get('mood', 'Normal')
+        if not self.llm or not self.agent:
+            return {"text": "Error: Chatbot belum diinisialisasi."}
 
-        # B. Logika Anti-Duplikat & Sinkronisasi Teks
-        # Jika model memberikan rekomendasi lagu (bukan sekadar ngobrol)
-        if raw_songs:
-            unique_songs = []
-            seen_track_ids = set()
+        if not self.is_music_related(user_message):
+            return {"text": "Maaf, saya hanya dapat membantu rekomendasi musik berdasarkan mood."}
 
-            # 1. Filter menggunakan track_id unik
-            for song in raw_songs:
-                # Ambil track_id dari baris data
-                tid = song.get('track_id')
-                
-                # Hanya masukkan jika ID belum pernah muncul di respon ini
-                if tid and tid not in seen_track_ids:
-                    unique_songs.append(song)
-                    seen_track_ids.add(tid)
+        try:
+            config = {"configurable": {"thread_id": thread_id}}
+            result = self.agent.invoke(
+                {"messages": [HumanMessage(content=user_message)]},
+                config=config
+            )
 
-            # 2. PAKSA RE-WRITE TEKS (Pembersihan History)
-            # Ini menghapus teks lagu 'Happy' sebelumnya agar tidak muncul saat user minta lagu 'Sad'
-            new_text = f"**Rekomendasi Lagu untuk Mood {mood}:**\n\n"
-            
-            for i, s in enumerate(unique_songs, 1):
-                # Ambil judul dan artis dengan fallback 'Unknown'
-                title = s.get('title') or s.get('track_name', 'Unknown')
-                artist = s.get('artist') or s.get('artists', 'Unknown Artist')
-                new_text += f"{i}. **{title}** - {artist}\n"
-            
-            new_text += "\nSemoga lagu-lagu ini bisa menemani harimu! ✨"
-            
-            # Ganti teks asli yang berantakan/duplikat dengan teks yang bersih
-            response['text'] = new_text
-            response['songs'] = unique_songs
-        
-        # Jika user hanya menyapa/ngobrol (tidak ada list lagu), 
-        # biarkan response['text'] apa adanya dari LLM.
-        return response
+            last_message = result["messages"][-1]
+            response_text = last_message.content
+
+            # --- FILTER DUPLIKAT MENGGUNAKAN TRACK_ID ---
+            songs = []
+            seen_track_ids = set() # Menggunakan ID unik sebagai filter
+
+            for message in result["messages"]:
+                if isinstance(message, ToolMessage):
+                    try:
+                        tool_result = json.loads(message.content)
+                        if "recommendations" in tool_result:
+                            for song in tool_result["recommendations"]:
+                                tid = song.get("track_id")
+                                
+                                # Cek apakah track_id sudah pernah dimasukkan
+                                if tid and tid not in seen_track_ids:
+                                    songs.append({
+                                        "title": song.get("title", "Unknown"),
+                                        "artist": song.get("artist", "Unknown Artist"),
+                                        "album": song.get("album", "Unknown Album"),
+                                        "genre": song.get("genre", "Unknown"),
+                                        "popularity": song.get("popularity", 0),
+                                        "track_id": tid
+                                    })
+                                    seen_track_ids.add(tid)
+                    except:
+                        continue
+
+            # Ambil 5 lagu pertama yang unik secara ID
+            songs = songs[:5]
+
+            return {
+                "text": response_text,
+                "songs": songs
+            }
+
+        except Exception as e:
+            return {"text": f"Maaf, terjadi error: {str(e)}"}
 
 # Export agar bisa dipanggil di main.py atau 1_Music.py
 __all__ = ['MusicChatbot', 'create_chatbot']
