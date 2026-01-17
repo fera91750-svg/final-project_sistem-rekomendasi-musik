@@ -118,7 +118,7 @@ class MusicRecommendationEngine:
                                'track_id', 'popularity', 'valence',
                                'energy', 'track_genre', 'mood']]
 
-    def get_recommendations_by_genre(self, genre, n):
+    def get_recommendations_by_genre(self, genre, n=10):
         """Get song recommendations by genre without duplicates"""
         
         filtered = self.df[self.df['track_genre'] == genre]
@@ -131,21 +131,10 @@ class MusicRecommendationEngine:
             filtered
             .sort_values('popularity', ascending=False)
             .drop_duplicates(subset='track_id')
+            .reset_index(drop=True)
         )
 
-        # Ambil pool lagu teratas
-        pool_size = min(len(filtered), max(n * 2, n))
-        top_pool = filtered.head(pool_size)
-
-        # Random tapi tetap unik
-        if len(top_pool) > n:
-            recommendations = (
-                top_pool
-                .sample(n=n, random_state=None)
-                .sort_values(by='popularity', ascending=False)
-            )
-        else:
-            recommendations = top_pool
+      recommendations = filtered.head(n)
 
         return recommendations[['track_name', 'artists', 'album_name',
                              'track_id', 'popularity', 'valence',
