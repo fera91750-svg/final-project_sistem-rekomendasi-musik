@@ -120,7 +120,11 @@ class MusicRecommendationEngine:
 
     def get_recommendations_by_genre(self, genre, n):
         """Get song recommendations by genre without duplicates"""
-
+         unique_songs = (
+            self.df
+            .sort_values('popularity', ascending=False)
+            .drop_duplicates(subset='track_id')
+        )
         filtered = self.df[self.df['track_genre'] == genre]
 
         if filtered.empty:
